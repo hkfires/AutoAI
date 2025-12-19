@@ -1,0 +1,27 @@
+# Web Framework
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+
+# Database
+sqlalchemy[asyncio]>=2.0.0
+aiosqlite>=0.19.0
+
+# HTTP Client
+httpx>=0.25.0
+
+# Scheduler
+apscheduler>=3.10.0
+
+# Configuration
+pydantic-settings>=2.1.0
+
+# Logging
+loguru>=0.7.0
+
+# Retry
+tenacity>=8.2.0
+
+# Utilities
+python-multipart>=0.0.6
+cryptography>=41.0.0
+jinja2>=3.1.0

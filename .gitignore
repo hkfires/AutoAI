@@ -1,0 +1,45 @@
+# AI Agent Tools
+_bmad/
+.agent/
+.claude/
+.gemini/
+CLAUDE.md
+AGENTS.md
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.so
+.eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+.venv/
+ENV/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.env.local
+
+# Data & Logs
+data/*.db
+logs/*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# BMAD (keep for development reference)
+# _bmad/
+# _bmad-output/
