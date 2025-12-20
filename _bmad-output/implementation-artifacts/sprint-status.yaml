@@ -41,7 +41,7 @@ development_status:
   # Epic 1: 项目基础设施与配置
   epic-1: in-progress
   1-1-project-structure-init: done
-  1-2-environment-config-management: backlog
+  1-2-environment-config-management: done
   1-3-docker-containerization: backlog
   epic-1-retrospective: optional
 
