@@ -5,6 +5,9 @@ import sys
 import pytest
 from typing import Iterator
 
+# Configure pytest-asyncio
+pytest_plugins = ('pytest_asyncio',)
+
 
 @pytest.fixture(autouse=True)
 def reset_settings_singleton():

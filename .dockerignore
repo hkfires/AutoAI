@@ -1,0 +1,39 @@
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv
+venv
+ENV
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Testing
+.pytest_cache
+.coverage
+htmlcov
+
+# Environment
+.env
+*.env.local
+
+# Development files
+_bmad
+_bmad-output
+tests
+*.md
+!README.md
+
+# Misc
+.DS_Store
+Thumbs.db

@@ -45,9 +45,98 @@ uvicorn app.main:app --reload
 
 ### Docker 部署
 
+#### 前置条件
+
+- Docker >= 20.10
+- Docker Compose >= 2.0
+
+#### 快速启动
+
+1. 复制环境变量配置文件：
+   ```bash
+   cp .env.example .env
+   ```
+
+2. 编辑 .env 文件，设置必需的 ADMIN_PASSWORD：
+   ```bash
+   # Linux/Mac
+   nano .env
+
+   # Windows
+   notepad .env
+   ```
+   修改 `ADMIN_PASSWORD=your_secure_password`
+
+3. 构建并启动容器：
+   ```bash
+   docker-compose up -d --build
+   ```
+
+4. 等待健康检查通过（约 30 秒）：
+   ```bash
+   docker-compose ps
+   # 状态应显示 (healthy)
+   ```
+
+5. 验证服务运行：
+   ```bash
+   # Linux/Mac (需要 curl)
+   curl http://localhost:8000/health
+
+   # Windows PowerShell
+   Invoke-WebRequest -Uri http://localhost:8000/health
+
+   # 跨平台 (Python)
+   python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read())"
+   ```
+
+#### 常用命令
+
+| 操作 | 命令 |
+|------|------|
+| 启动服务 | `docker-compose up -d` |
+| 停止服务 | `docker-compose down` |
+| 重启服务 | `docker-compose restart` |
+| 查看日志 | `docker-compose logs -f` |
+| 查看状态 | `docker-compose ps` |
+| 重新构建 | `docker-compose up -d --build` |
+| 进入容器 | `docker-compose exec autoai bash` |
+
+#### 数据持久化
+
+以下目录通过 Docker Volume 挂载，数据在容器重启后保留：
+
+| 目录 | 说明 |
+|------|------|
+| `./data/` | SQLite 数据库文件 (autoai.db) |
+| `./logs/` | 应用日志文件 (autoai.log) |
+
+#### 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| DATABASE_URL | 数据库连接字符串 | `sqlite+aiosqlite:///./data/autoai.db` |
+| LOG_LEVEL | 日志级别 (DEBUG/INFO/WARNING/ERROR/CRITICAL) | `INFO` |
+| ADMIN_PASSWORD | 管理密码 | **必需，无默认值** |
+
+#### 故障排查
+
+**容器无法启动：**
 ```bash
-# 使用 docker-compose 启动
-docker-compose up -d
+# 查看容器日志
+docker-compose logs autoai
+
+# 检查 .env 文件是否存在且 ADMIN_PASSWORD 已设置
+cat .env
+```
+
+**健康检查失败：**
+```bash
+# 进入容器检查
+docker-compose exec autoai bash
+
+# 容器内测试
+python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read())"
 ```
 
 ## 项目结构

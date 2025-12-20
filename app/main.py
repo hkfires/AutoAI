@@ -5,12 +5,13 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from loguru import logger
 
-from app.config import settings
+from app.config import get_settings
 from app.database import init_db
 from app.scheduler import scheduler
 from app.api.tasks import router as tasks_router
 
 # Configure loguru for file logging
+settings = get_settings()
 logger.add(
     "logs/autoai.log",
     rotation="10 MB",
