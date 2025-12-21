@@ -48,7 +48,7 @@ development_status:
   # Epic 2: 核心定时执行引擎
   epic-2: in-progress
   2-1-task-log-data-model: done
-  2-2-task-management-api: backlog
+  2-2-task-management-api: done
   2-3-openai-api-service: backlog
   2-4-scheduled-execution-engine: backlog
   2-5-task-management-web-ui: backlog

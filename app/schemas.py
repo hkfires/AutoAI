@@ -8,7 +8,7 @@ import re
 from datetime import datetime
 from typing import Literal, Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.utils.security import mask_api_key
 
@@ -16,16 +16,21 @@ from app.utils.security import mask_api_key
 # Valid schedule types
 ScheduleType = Literal["interval", "fixed_time"]
 
+# Field length constraints (matching database model)
+MAX_NAME_LENGTH = 100
+MAX_API_ENDPOINT_LENGTH = 500
+MAX_API_KEY_LENGTH = 500
+
 
 class TaskBase(BaseModel):
     """Base schema for Task with common fields."""
 
-    name: str
-    api_endpoint: str
+    name: str = Field(..., min_length=1, max_length=MAX_NAME_LENGTH)
+    api_endpoint: str = Field(..., min_length=1, max_length=MAX_API_ENDPOINT_LENGTH)
     schedule_type: ScheduleType  # interval | fixed_time
     interval_minutes: Optional[int] = None
     fixed_time: Optional[str] = None  # HH:MM
-    message_content: str
+    message_content: str = Field(..., min_length=1)
     enabled: bool = True
 
     @field_validator("fixed_time")
@@ -64,7 +69,7 @@ class TaskBase(BaseModel):
 class TaskCreate(TaskBase):
     """Schema for creating a new Task."""
 
-    api_key: str
+    api_key: str = Field(..., min_length=1, max_length=MAX_API_KEY_LENGTH)
 
 
 class TaskUpdate(BaseModel):
@@ -75,13 +80,13 @@ class TaskUpdate(BaseModel):
     since we don't have access to existing values here.
     """
 
-    name: Optional[str] = None
-    api_endpoint: Optional[str] = None
-    api_key: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=MAX_NAME_LENGTH)
+    api_endpoint: Optional[str] = Field(None, min_length=1, max_length=MAX_API_ENDPOINT_LENGTH)
+    api_key: Optional[str] = Field(None, min_length=1, max_length=MAX_API_KEY_LENGTH)
     schedule_type: Optional[ScheduleType] = None
     interval_minutes: Optional[int] = None
     fixed_time: Optional[str] = None
-    message_content: Optional[str] = None
+    message_content: Optional[str] = Field(None, min_length=1)
     enabled: Optional[bool] = None
 
     @field_validator("fixed_time")
