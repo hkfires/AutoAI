@@ -1,5 +1,9 @@
 """Application Configuration using pydantic-settings."""
 
+import os
+from pathlib import Path
+
+from cryptography.fernet import Fernet
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +19,9 @@ class Settings(BaseSettings):
 
     # Admin (required, hidden from repr/logs)
     admin_password: str = Field(..., repr=False)
+
+    # Encryption (optional, auto-generated if not set)
+    encryption_key: str | None = Field(default=None, repr=False)
 
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -64,3 +71,102 @@ def get_settings() -> Settings:
     if _settings is None:
         _settings = Settings()
     return _settings
+
+
+def ensure_encryption_key() -> str:
+    """Ensure ENCRYPTION_KEY exists, auto-generate and write to .env if not.
+
+    Uses file locking to prevent race conditions when multiple processes
+    start simultaneously. Works on both Windows and Unix.
+
+    Returns:
+        The encryption key value.
+
+    Raises:
+        FileNotFoundError: If .env file does not exist and cannot be created safely.
+    """
+    import sys
+
+    key = os.getenv("ENCRYPTION_KEY")
+    if key:
+        return key
+
+    env_path = Path(".env")
+
+    # Check if .env exists - don't create from scratch as it needs ADMIN_PASSWORD
+    if not env_path.exists():
+        raise FileNotFoundError(
+            ".env file not found. Please create it from .env.example first. "
+            "ENCRYPTION_KEY will be auto-generated on next startup."
+        )
+
+    # Platform-specific file locking
+    if sys.platform == "win32":
+        import msvcrt
+
+        with open(env_path, "r+", encoding="utf-8") as f:
+            try:
+                # Acquire exclusive lock (Windows)
+                msvcrt.locking(f.fileno(), msvcrt.LK_LOCK, 1)
+
+                # Re-check after acquiring lock
+                f.seek(0)
+                content = f.read()
+                for line in content.splitlines():
+                    if line.startswith("ENCRYPTION_KEY=") and line.split("=", 1)[1].strip():
+                        key = line.split("=", 1)[1].strip()
+                        os.environ["ENCRYPTION_KEY"] = key
+                        return key
+
+                # Generate new Fernet key
+                key = Fernet.generate_key().decode()
+
+                # Append to .env file
+                f.seek(0, 2)  # Seek to end
+                f.write(f"\n# Auto-generated encryption key\nENCRYPTION_KEY={key}\n")
+                f.flush()
+
+            finally:
+                # Release lock (Windows)
+                try:
+                    f.seek(0)
+                    msvcrt.locking(f.fileno(), msvcrt.LK_UNLCK, 1)
+                except OSError:
+                    pass
+    else:
+        import fcntl
+
+        with open(env_path, "r+", encoding="utf-8") as f:
+            try:
+                # Acquire exclusive lock (Unix)
+                fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+
+                # Re-check after acquiring lock
+                f.seek(0)
+                content = f.read()
+                for line in content.splitlines():
+                    if line.startswith("ENCRYPTION_KEY=") and line.split("=", 1)[1].strip():
+                        key = line.split("=", 1)[1].strip()
+                        os.environ["ENCRYPTION_KEY"] = key
+                        return key
+
+                # Generate new Fernet key
+                key = Fernet.generate_key().decode()
+
+                # Append to .env file
+                f.seek(0, 2)  # Seek to end
+                f.write(f"\n# Auto-generated encryption key\nENCRYPTION_KEY={key}\n")
+                f.flush()
+
+            finally:
+                # Release lock (Unix)
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)
+
+    # Set environment variable for current process
+    os.environ["ENCRYPTION_KEY"] = key
+
+    # Reset settings singleton so it picks up the new key
+    global _settings
+    _settings = None
+
+    return key

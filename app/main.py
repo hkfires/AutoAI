@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from loguru import logger
 
-from app.config import get_settings
+from app.config import get_settings, ensure_encryption_key
 from app.database import init_db
 from app.scheduler import scheduler
 from app.api.tasks import router as tasks_router
@@ -26,6 +26,7 @@ async def lifespan(app: FastAPI):
     """Manage application lifecycle: startup and shutdown events."""
     # Startup
     logger.info("Starting AutoAI application...")
+    ensure_encryption_key()
     await init_db()
     scheduler.start()
     logger.info("AutoAI application started successfully")
