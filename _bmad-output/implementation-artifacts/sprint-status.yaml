@@ -49,7 +49,7 @@ development_status:
   epic-2: in-progress
   2-1-task-log-data-model: done
   2-2-task-management-api: done
-  2-3-openai-api-service: backlog
+  2-3-openai-api-service: done
   2-4-scheduled-execution-engine: backlog
   2-5-task-management-web-ui: backlog
   2-6-execution-log-viewer: backlog
