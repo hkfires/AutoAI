@@ -50,7 +50,7 @@ development_status:
   2-1-task-log-data-model: done
   2-2-task-management-api: done
   2-3-openai-api-service: done
-  2-4-scheduled-execution-engine: backlog
+  2-4-scheduled-execution-engine: done
   2-5-task-management-web-ui: backlog
   2-6-execution-log-viewer: backlog
   epic-2-retrospective: optional

@@ -7,7 +7,7 @@ from loguru import logger
 
 from app.config import get_settings, ensure_encryption_key
 from app.database import init_db
-from app.scheduler import scheduler
+from app.scheduler import start_scheduler, shutdown_scheduler
 from app.api.tasks import router as tasks_router
 
 # Configure loguru for file logging
@@ -28,14 +28,14 @@ async def lifespan(app: FastAPI):
     logger.info("Starting AutoAI application...")
     ensure_encryption_key()
     await init_db()
-    scheduler.start()
+    await start_scheduler()
     logger.info("AutoAI application started successfully")
 
     yield
 
     # Shutdown
     logger.info("Shutting down AutoAI application...")
-    scheduler.shutdown()
+    await shutdown_scheduler()
     logger.info("AutoAI application shutdown complete")
 
 
