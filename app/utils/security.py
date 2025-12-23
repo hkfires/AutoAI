@@ -4,6 +4,8 @@ Provides encryption/decryption for sensitive data storage
 and masking for safe display in logs and responses.
 """
 
+import secrets
+
 from cryptography.fernet import Fernet
 
 from app.config import get_settings
@@ -67,3 +69,18 @@ def decrypt_api_key(encrypted_text: str) -> str:
         Decrypted plain text API key.
     """
     return get_fernet().decrypt(encrypted_text.encode()).decode()
+
+
+def verify_password(plain_password: str, stored_password: str) -> bool:
+    """Verify password matches using timing-safe comparison.
+
+    Uses secrets.compare_digest to prevent timing attacks.
+
+    Args:
+        plain_password: User-provided password to verify.
+        stored_password: Password from environment variable.
+
+    Returns:
+        True if passwords match, False otherwise.
+    """
+    return secrets.compare_digest(plain_password, stored_password)

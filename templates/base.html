@@ -34,8 +34,13 @@
     {% block head %}{% endblock %}
 </head>
 <body>
-    <nav style="margin-bottom: 20px;">
+    <nav style="margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;">
         <a href="/" style="font-size: 1.5em; text-decoration: none; color: #333;">AutoAI</a>
+        {% if is_authenticated %}
+        <form method="POST" action="/logout" style="margin: 0;">
+            <button type="submit" class="btn btn-secondary" style="padding: 6px 12px;">退出登录</button>
+        </form>
+        {% endif %}
     </nav>
 
     {% if message %}

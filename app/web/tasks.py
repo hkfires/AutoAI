@@ -20,6 +20,7 @@ from app.models import Task, ExecutionLog
 from app.schemas import TaskCreate, TaskUpdate
 from app.services import task_service
 from app.scheduler import add_job, remove_job, reschedule_job
+from app.web.auth import render_template
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="templates")
@@ -66,7 +67,7 @@ async def list_tasks(
         }
         task_list.append(task_dict)
 
-    return templates.TemplateResponse(
+    return render_template(
         request,
         "tasks/list.html",
         {"tasks": task_list, "message": message, "message_type": message_type},
@@ -76,7 +77,7 @@ async def list_tasks(
 @router.get("/tasks/new")
 async def new_task_form(request: Request):
     """Display new task form."""
-    return templates.TemplateResponse(
+    return render_template(
         request,
         "tasks/form.html",
         {"task": None, "action_url": "/tasks/new"},
@@ -136,7 +137,7 @@ async def create_task(
 
     except (ValueError, ValidationError) as e:
         error_msg = str(e) if isinstance(e, ValueError) else str(e.errors())
-        return templates.TemplateResponse(
+        return render_template(
             request,
             "tasks/form.html",
             {"task": form_data, "action_url": "/tasks/new",
@@ -147,7 +148,7 @@ async def create_task(
     except (IntegrityError, SQLAlchemyError) as e:
         logger.error(f"Database error creating task: {e}")
         await session.rollback()
-        return templates.TemplateResponse(
+        return render_template(
             request,
             "tasks/form.html",
             {"task": form_data, "action_url": "/tasks/new",
@@ -167,7 +168,7 @@ async def edit_task_form(
     if task is None:
         return RedirectResponse(url="/?message=任务不存在&message_type=error", status_code=303)
 
-    return templates.TemplateResponse(
+    return render_template(
         request,
         "tasks/form.html",
         {"task": task, "action_url": f"/tasks/{task_id}/edit"},
@@ -237,7 +238,7 @@ async def update_task(
 
     except (ValueError, ValidationError) as e:
         error_msg = str(e) if isinstance(e, ValueError) else str(e.errors())
-        return templates.TemplateResponse(
+        return render_template(
             request,
             "tasks/form.html",
             {"task": form_data, "action_url": f"/tasks/{task_id}/edit",
@@ -248,7 +249,7 @@ async def update_task(
     except (IntegrityError, SQLAlchemyError) as e:
         logger.error(f"Database error updating task {task_id}: {e}")
         await session.rollback()
-        return templates.TemplateResponse(
+        return render_template(
             request,
             "tasks/form.html",
             {"task": form_data, "action_url": f"/tasks/{task_id}/edit",
@@ -303,7 +304,7 @@ async def view_task_logs(
     )
     logs = result.scalars().all()
 
-    return templates.TemplateResponse(
+    return render_template(
         request,
         "tasks/logs.html",
         {"task": task, "logs": logs},

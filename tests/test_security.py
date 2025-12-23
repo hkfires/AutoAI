@@ -91,3 +91,29 @@ def test_get_fernet_raises_without_key(monkeypatch):
 
     with pytest.raises(ValueError, match="ENCRYPTION_KEY not configured"):
         security_module.get_fernet()
+
+
+# === Password Verification Tests (Story 3.1) ===
+
+
+def test_verify_password_correct():
+    """Test verify_password returns True for matching passwords."""
+    from app.utils.security import verify_password
+
+    assert verify_password("admin123", "admin123") is True
+
+
+def test_verify_password_incorrect():
+    """Test verify_password returns False for non-matching passwords."""
+    from app.utils.security import verify_password
+
+    assert verify_password("wrong", "admin123") is False
+
+
+def test_verify_password_empty():
+    """Test verify_password handles empty strings correctly."""
+    from app.utils.security import verify_password
+
+    assert verify_password("", "") is True
+    assert verify_password("", "password") is False
+    assert verify_password("password", "") is False
