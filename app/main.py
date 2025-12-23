@@ -9,6 +9,7 @@ from app.config import get_settings, ensure_encryption_key
 from app.database import init_db
 from app.scheduler import start_scheduler, shutdown_scheduler
 from app.api.tasks import router as tasks_router
+from app.web.tasks import router as web_tasks_router
 
 # Configure loguru for file logging
 settings = get_settings()
@@ -48,6 +49,7 @@ app = FastAPI(
 
 # Register API routers
 app.include_router(tasks_router)
+app.include_router(web_tasks_router)
 
 
 @app.get("/health")

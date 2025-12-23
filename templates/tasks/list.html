@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}任务列表 - AutoAI{% endblock %}
+
+{% block content %}
+<h1>任务列表</h1>
+
+<a href="/tasks/new" class="btn btn-primary" style="margin-bottom: 20px;">+ 新建任务</a>
+
+<table>
+    <thead>
+        <tr>
+            <th>任务名称</th>
+            <th>调度规则</th>
+            <th>状态</th>
+            <th>最后执行</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for task in tasks %}
+        <tr>
+            <td>{{ task.name }}</td>
+            <td>
+                {% if task.schedule_type == 'interval' %}
+                    每 {{ task.interval_minutes }} 分钟
+                {% else %}
+                    每天 {{ task.fixed_time }}
+                {% endif %}
+            </td>
+            <td>
+                {% if task.enabled %}
+                    <span class="status-enabled">启用</span>
+                {% else %}
+                    <span class="status-disabled">禁用</span>
+                {% endif %}
+            </td>
+            <td>{{ task.last_executed_at or '从未执行' }}</td>
+            <td>
+                <a href="/tasks/{{ task.id }}/edit" class="btn btn-secondary">编辑</a>
+                <form action="/tasks/{{ task.id }}/delete" method="POST" style="display: inline;">
+                    <button type="submit" class="btn btn-danger"
+                            onclick="return confirm('确定要删除任务「{{ task.name }}」吗？')">删除</button>
+                </form>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5" style="text-align: center; color: #666;">暂无任务，点击"新建任务"创建第一个</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

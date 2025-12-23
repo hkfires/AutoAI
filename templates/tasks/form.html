@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}{% if task %}编辑任务{% else %}新建任务{% endif %} - AutoAI{% endblock %}
+
+{% block content %}
+<h1>{% if task %}编辑任务{% else %}新建任务{% endif %}</h1>
+
+<form method="POST" action="{{ action_url }}">
+    <div class="form-group">
+        <label for="name">任务名称 *</label>
+        <input type="text" id="name" name="name" value="{{ task.name if task else '' }}" required
+               maxlength="100" placeholder="例如：每日问候">
+    </div>
+
+    <div class="form-group">
+        <label for="api_endpoint">API 端点地址 *</label>
+        <input type="url" id="api_endpoint" name="api_endpoint"
+               value="{{ task.api_endpoint if task else 'https://api.openai.com/v1/chat/completions' }}"
+               required maxlength="500">
+    </div>
+
+    <div class="form-group">
+        <label for="api_key">API 密钥 {% if task %}(留空保持原值){% else %}*{% endif %}</label>
+        <input type="password" id="api_key" name="api_key"
+               placeholder="sk-..." maxlength="500" {% if not task %}required{% endif %}>
+    </div>
+
+    <div class="form-group">
+        <label for="schedule_type">调度类型 *</label>
+        <select id="schedule_type" name="schedule_type" required onchange="toggleScheduleFields()">
+            <option value="interval" {% if not task or task.schedule_type == 'interval' %}selected{% endif %}>
+                间隔模式
+            </option>
+            <option value="fixed_time" {% if task and task.schedule_type == 'fixed_time' %}selected{% endif %}>
+                固定时间模式
+            </option>
+        </select>
+    </div>
+
+    <div class="form-group" id="interval-group">
+        <label for="interval_minutes">间隔分钟数</label>
+        <input type="number" id="interval_minutes" name="interval_minutes"
+               value="{{ task.interval_minutes if task else 60 }}" min="1" placeholder="60">
+    </div>
+
+    <div class="form-group hidden" id="fixed-time-group">
+        <label for="fixed_time">固定时间 (HH:MM)</label>
+        <input type="time" id="fixed_time" name="fixed_time"
+               value="{{ task.fixed_time if task else '09:00' }}">
+    </div>
+
+    <div class="form-group">
+        <label for="message_content">消息内容 *</label>
+        <textarea id="message_content" name="message_content" required
+                  placeholder="输入要发送给 AI 的消息...">{{ task.message_content if task else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+        <label>
+            <input type="checkbox" name="enabled" value="true"
+                   {% if not task or task.enabled %}checked{% endif %}>
+            启用任务
+        </label>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button type="submit" class="btn btn-primary">保存</button>
+        <a href="/" class="btn btn-secondary">取消</a>
+    </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function toggleScheduleFields() {
+    const scheduleType = document.getElementById('schedule_type').value;
+    const intervalGroup = document.getElementById('interval-group');
+    const fixedTimeGroup = document.getElementById('fixed-time-group');
+
+    if (scheduleType === 'interval') {
+        intervalGroup.classList.remove('hidden');
+        fixedTimeGroup.classList.add('hidden');
+        document.getElementById('interval_minutes').required = true;
+        document.getElementById('fixed_time').required = false;
+    } else {
+        intervalGroup.classList.add('hidden');
+        fixedTimeGroup.classList.remove('hidden');
+        document.getElementById('interval_minutes').required = false;
+        document.getElementById('fixed_time').required = true;
+    }
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', toggleScheduleFields);
+</script>
+{% endblock %}
