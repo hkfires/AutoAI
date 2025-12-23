@@ -11,6 +11,7 @@ from app.database import get_session
 from app.models import Task, ExecutionLog
 from app.schemas import TaskCreate, TaskUpdate, TaskResponse, ExecutionLogResponse
 from app.services import task_service
+from app.web.auth import require_auth_api
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -19,6 +20,7 @@ router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 async def create_task(
     task_data: TaskCreate,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
 ):
     """Create a new task."""
     task = await task_service.create_task(session, task_data)
@@ -26,13 +28,20 @@ async def create_task(
 
 
 @router.get("", response_model=list[TaskResponse])
-async def get_tasks(session: AsyncSession = Depends(get_session)):
+async def get_tasks(
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
+):
     """Get all tasks."""
     return await task_service.get_tasks(session)
 
 
 @router.get("/{task_id}", response_model=TaskResponse)
-async def get_task(task_id: int, session: AsyncSession = Depends(get_session)):
+async def get_task(
+    task_id: int,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
+):
     """Get a task by ID."""
     task = await task_service.get_task(session, task_id)
     if task is None:
@@ -45,6 +54,7 @@ async def update_task(
     task_id: int,
     task_data: TaskUpdate,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
 ):
     """Update an existing task."""
     task = await task_service.get_task(session, task_id)
@@ -85,7 +95,11 @@ async def update_task(
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_task(task_id: int, session: AsyncSession = Depends(get_session)):
+async def delete_task(
+    task_id: int,
+    session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
+):
     """Delete a task."""
     task = await task_service.get_task(session, task_id)
     if task is None:
@@ -99,6 +113,7 @@ async def get_task_logs(
     task_id: int,
     limit: int = Query(default=50, ge=1, le=100, description="Number of logs to return (1-100)"),
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_api),
 ):
     """Get execution logs for a specific task.
 

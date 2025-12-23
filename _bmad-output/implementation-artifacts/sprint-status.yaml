@@ -58,7 +58,7 @@ development_status:
   # Epic 3: Web 管理后台与认证 [Phase 2]
   epic-3: in-progress
   3-1-user-login-auth: done
-  3-2-route-api-protection: backlog
+  3-2-route-api-protection: done
   3-3-task-status-dashboard: backlog
   3-4-enhanced-execution-log-viewer: backlog
   epic-3-retrospective: optional

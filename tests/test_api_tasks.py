@@ -50,7 +50,9 @@ async def test_session():
 
 @pytest_asyncio.fixture
 async def client(test_session):
-    """Create a test client with overridden database session."""
+    """Create a test client with overridden database session and authentication."""
+    from app.web.auth import create_session_token
+
     async def override_get_session():
         yield test_session
 
@@ -60,7 +62,11 @@ async def client(test_session):
         transport=ASGITransport(app=app),
         base_url="http://test"
     ) as ac:
+        # Add authentication cookie for all requests
+        token = create_session_token()
+        ac.cookies.set("session", token)
         yield ac
+        ac.cookies.clear()
 
     app.dependency_overrides.clear()
 

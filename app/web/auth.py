@@ -5,7 +5,7 @@ Provides login/logout functionality using signed session cookies.
 
 from typing import Any
 
-from fastapi import APIRouter, Request, Form, Cookie
+from fastapi import APIRouter, Request, Form, Cookie, HTTPException
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
@@ -13,6 +13,12 @@ from starlette.templating import _TemplateResponse
 
 from app.config import get_settings
 from app.utils.security import verify_password
+
+
+class AuthRedirectException(Exception):
+    """未认证用户访问受保护 Web 页面时抛出，触发重定向到登录页。"""
+    pass
+
 
 router = APIRouter(tags=["auth"])
 templates = Jinja2Templates(directory="templates")
@@ -61,6 +67,40 @@ def get_current_user(session: str | None = Cookie(default=None)) -> bool:
         True if authenticated, False otherwise.
     """
     return verify_session_token(session) if session else False
+
+
+def require_auth_web(session: str | None = Cookie(default=None)) -> bool:
+    """Web 页面认证依赖 - 未登录抛出 AuthRedirectException。
+
+    Args:
+        session: Session cookie value.
+
+    Returns:
+        True if authenticated.
+
+    Raises:
+        AuthRedirectException: If not authenticated (handled by exception handler).
+    """
+    if not verify_session_token(session):
+        raise AuthRedirectException()
+    return True
+
+
+def require_auth_api(session: str | None = Cookie(default=None)) -> bool:
+    """API 认证依赖 - 未登录返回 401。
+
+    Args:
+        session: Session cookie value.
+
+    Returns:
+        True if authenticated.
+
+    Raises:
+        HTTPException: 401 Unauthorized if not authenticated.
+    """
+    if not verify_session_token(session):
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return True
 
 
 def render_template(

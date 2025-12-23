@@ -20,7 +20,7 @@ from app.models import Task, ExecutionLog
 from app.schemas import TaskCreate, TaskUpdate
 from app.services import task_service
 from app.scheduler import add_job, remove_job, reschedule_job
-from app.web.auth import render_template
+from app.web.auth import render_template, require_auth_web
 
 router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="templates")
@@ -30,6 +30,7 @@ templates = Jinja2Templates(directory="templates")
 async def list_tasks(
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
     message: Optional[str] = None,
     message_type: str = "success",
 ):
@@ -75,7 +76,7 @@ async def list_tasks(
 
 
 @router.get("/tasks/new")
-async def new_task_form(request: Request):
+async def new_task_form(request: Request, _: bool = Depends(require_auth_web)):
     """Display new task form."""
     return render_template(
         request,
@@ -88,6 +89,7 @@ async def new_task_form(request: Request):
 async def create_task(
     request: Request,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
     name: str = Form(...),
     api_endpoint: str = Form(...),
     api_key: str = Form(...),
@@ -162,6 +164,7 @@ async def edit_task_form(
     request: Request,
     task_id: int,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
 ):
     """Display edit task form."""
     task = await task_service.get_task(session, task_id)
@@ -180,6 +183,7 @@ async def update_task(
     request: Request,
     task_id: int,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
     name: str = Form(...),
     api_endpoint: str = Form(...),
     api_key: Optional[str] = Form(None),
@@ -262,6 +266,7 @@ async def update_task(
 async def delete_task(
     task_id: int,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
 ):
     """Handle task deletion."""
     task = await task_service.get_task(session, task_id)
@@ -285,6 +290,7 @@ async def view_task_logs(
     request: Request,
     task_id: int,
     session: AsyncSession = Depends(get_session),
+    _: bool = Depends(require_auth_web),
 ):
     """Display task execution logs page."""
     # Get task

@@ -234,3 +234,206 @@ def test_get_current_user_not_authenticated():
 
     assert get_current_user(session=None) is False
     assert get_current_user(session="") is False
+
+
+# === Auth Dependency Tests (Story 3.2) ===
+
+
+def test_require_auth_web_raises_on_no_session():
+    """Test require_auth_web raises AuthRedirectException when not authenticated."""
+    from app.web.auth import require_auth_web, AuthRedirectException
+
+    with pytest.raises(AuthRedirectException):
+        require_auth_web(session=None)
+
+
+def test_require_auth_web_raises_on_invalid_session():
+    """Test require_auth_web raises AuthRedirectException for invalid session."""
+    from app.web.auth import require_auth_web, AuthRedirectException
+
+    with pytest.raises(AuthRedirectException):
+        require_auth_web(session="invalid-token")
+
+
+def test_require_auth_web_passes_with_valid_session():
+    """Test require_auth_web returns True for valid session."""
+    from app.web.auth import require_auth_web, create_session_token
+
+    token = create_session_token()
+    result = require_auth_web(session=token)
+    assert result is True
+
+
+def test_require_auth_api_raises_on_no_session():
+    """Test require_auth_api raises HTTPException 401 when not authenticated."""
+    from fastapi import HTTPException
+    from app.web.auth import require_auth_api
+
+    with pytest.raises(HTTPException) as exc_info:
+        require_auth_api(session=None)
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Not authenticated"
+
+
+def test_require_auth_api_raises_on_invalid_session():
+    """Test require_auth_api raises HTTPException 401 for invalid session."""
+    from fastapi import HTTPException
+    from app.web.auth import require_auth_api
+
+    with pytest.raises(HTTPException) as exc_info:
+        require_auth_api(session="invalid-token")
+    assert exc_info.value.status_code == 401
+    assert exc_info.value.detail == "Not authenticated"
+
+
+def test_require_auth_api_passes_with_valid_session():
+    """Test require_auth_api returns True for valid session."""
+    from app.web.auth import require_auth_api, create_session_token
+
+    token = create_session_token()
+    result = require_auth_api(session=token)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_auth_redirect_exception_handler(client):
+    """Test AuthRedirectException is handled by redirecting to /login."""
+    # Access a protected page without authentication
+    response = await client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+# === Web Route Protection Tests (Story 3.2 AC#1) ===
+
+
+@pytest.mark.asyncio
+async def test_task_list_redirects_when_unauthenticated(client):
+    """Test / redirects to /login when not authenticated."""
+    response = await client.get("/", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_new_task_form_redirects_when_unauthenticated(client):
+    """Test /tasks/new redirects to /login when not authenticated."""
+    response = await client.get("/tasks/new", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_edit_task_form_redirects_when_unauthenticated(client):
+    """Test /tasks/{id}/edit redirects to /login when not authenticated."""
+    response = await client.get("/tasks/1/edit", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_task_logs_redirects_when_unauthenticated(client):
+    """Test /tasks/{id}/logs redirects to /login when not authenticated."""
+    response = await client.get("/tasks/1/logs", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+# === Authenticated Web Access Tests (Story 3.2 AC#3) ===
+
+
+@pytest.mark.asyncio
+async def test_task_list_accessible_when_authenticated(client):
+    """Test / does not redirect to /login when authenticated.
+
+    Authentication passes, response is not a redirect to login.
+    Database errors (500) are acceptable since we're testing auth, not DB.
+    SQLAlchemy errors indicate auth passed and we reached the database layer.
+    """
+    from app.web.auth import create_session_token
+    from sqlalchemy.exc import OperationalError
+
+    token = create_session_token()
+    client.cookies.set("session", token)
+    try:
+        response = await client.get("/", follow_redirects=False)
+        # Should not redirect to login when authenticated
+        is_login_redirect = (
+            response.status_code == 302 and
+            response.headers.get("location") == "/login"
+        )
+        assert not is_login_redirect, "Should not redirect to login when authenticated"
+    except OperationalError:
+        # Database errors mean auth passed successfully - we reached DB layer
+        pass
+    finally:
+        client.cookies.clear()
+
+
+@pytest.mark.asyncio
+async def test_new_task_form_accessible_when_authenticated(client):
+    """Test /tasks/new does not redirect to /login when authenticated."""
+    from app.web.auth import create_session_token
+
+    token = create_session_token()
+    client.cookies.set("session", token)
+    try:
+        response = await client.get("/tasks/new", follow_redirects=False)
+        # Should not redirect to login when authenticated
+        is_login_redirect = (
+            response.status_code == 302 and
+            response.headers.get("location") == "/login"
+        )
+        assert not is_login_redirect, "Should not redirect to login when authenticated"
+    finally:
+        client.cookies.clear()
+
+
+# === Web POST Route Protection Tests (Story 3.2 AC#1) ===
+
+
+@pytest.mark.asyncio
+async def test_create_task_post_redirects_when_unauthenticated(client):
+    """Test POST /tasks/new redirects to /login when not authenticated."""
+    response = await client.post(
+        "/tasks/new",
+        data={
+            "name": "Test",
+            "api_endpoint": "https://api.example.com",
+            "api_key": "sk-test123",
+            "schedule_type": "interval",
+            "interval_minutes": "60",
+            "message_content": "Hello",
+            "enabled": "true",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_update_task_post_redirects_when_unauthenticated(client):
+    """Test POST /tasks/{id}/edit redirects to /login when not authenticated."""
+    response = await client.post(
+        "/tasks/1/edit",
+        data={
+            "name": "Updated",
+            "api_endpoint": "https://api.example.com",
+            "schedule_type": "interval",
+            "interval_minutes": "60",
+            "message_content": "Hello",
+            "enabled": "true",
+        },
+        follow_redirects=False,
+    )
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
+
+
+@pytest.mark.asyncio
+async def test_delete_task_post_redirects_when_unauthenticated(client):
+    """Test POST /tasks/{id}/delete redirects to /login when not authenticated."""
+    response = await client.post("/tasks/1/delete", follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/login"
