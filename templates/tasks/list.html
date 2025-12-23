@@ -5,6 +5,26 @@
 {% block content %}
 <h1>任务列表</h1>
 
+<!-- 仪表板统计区域 -->
+<div class="dashboard">
+    <div class="dashboard-card">
+        <div class="card-value">{{ stats.total_tasks }}</div>
+        <div class="card-label">总任务数</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="card-value">{{ stats.enabled_tasks }}</div>
+        <div class="card-label">已启用</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="card-value">{{ stats.today_executions }}</div>
+        <div class="card-label">今日执行</div>
+    </div>
+    <div class="dashboard-card">
+        <div class="card-value">{{ stats.today_success_rate }}</div>
+        <div class="card-label">今日成功率</div>
+    </div>
+</div>
+
 <a href="/tasks/new" class="btn btn-primary" style="margin-bottom: 20px;">+ 新建任务</a>
 
 <table>
@@ -14,16 +34,21 @@
             <th>调度规则</th>
             <th>状态</th>
             <th>最后执行</th>
+            <th>最后状态</th>
             <th>操作</th>
         </tr>
     </thead>
     <tbody>
         {% for task in tasks %}
-        <tr>
+        <tr{% if task.last_execution_status == 'failed' %} class="row-warning"{% endif %}>
             <td>{{ task.name }}</td>
             <td>
                 {% if task.schedule_type == 'interval' %}
-                    每 {{ task.interval_minutes }} 分钟
+                    {% if task.interval_minutes >= 60 and task.interval_minutes % 60 == 0 %}
+                        每 {{ task.interval_minutes // 60 }} 小时
+                    {% else %}
+                        每 {{ task.interval_minutes }} 分钟
+                    {% endif %}
                 {% else %}
                     每天 {{ task.fixed_time }}
                 {% endif %}
@@ -37,6 +62,15 @@
             </td>
             <td>{{ task.last_executed_at or '从未执行' }}</td>
             <td>
+                {% if task.last_execution_status == 'success' %}
+                    <span class="status-success">成功</span>
+                {% elif task.last_execution_status == 'failed' %}
+                    <span class="status-failed">失败</span>
+                {% else %}
+                    <span class="status-never">从未执行</span>
+                {% endif %}
+            </td>
+            <td>
                 <a href="/tasks/{{ task.id }}/edit" class="btn btn-secondary">编辑</a>
                 <a href="/tasks/{{ task.id }}/logs" class="btn btn-secondary">日志</a>
                 <form action="/tasks/{{ task.id }}/delete" method="POST" style="display: inline;">
@@ -47,7 +81,7 @@
         </tr>
         {% else %}
         <tr>
-            <td colspan="5" style="text-align: center; color: #666;">暂无任务，点击"新建任务"创建第一个</td>
+            <td colspan="6" style="text-align: center; color: #666;">暂无任务，点击"新建任务"创建第一个</td>
         </tr>
         {% endfor %}
     </tbody>

@@ -59,6 +59,6 @@ development_status:
   epic-3: in-progress
   3-1-user-login-auth: done
   3-2-route-api-protection: done
-  3-3-task-status-dashboard: backlog
+  3-3-task-status-dashboard: done
   3-4-enhanced-execution-log-viewer: backlog
   epic-3-retrospective: optional

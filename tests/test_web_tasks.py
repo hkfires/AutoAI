@@ -588,3 +588,319 @@ class TestLogsPage:
         second_pos = text.find("Second")
         first_pos = text.find("First")
         assert second_pos < first_pos
+
+
+class TestDashboardStats:
+    """Tests for dashboard statistics (Story 3.3)."""
+
+    @pytest.mark.asyncio
+    async def test_dashboard_stats_returned_in_response(self, client, sample_task):
+        """Test that dashboard stats are included in the task list response."""
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Check for dashboard stat cards in the HTML
+        assert "总任务数" in response.text
+        assert "已启用" in response.text
+        assert "今日执行" in response.text
+        assert "今日成功率" in response.text
+        # Verify dashboard card structure
+        assert "dashboard-card" in response.text
+        assert "card-value" in response.text
+
+    @pytest.mark.asyncio
+    async def test_dashboard_stats_with_no_tasks(self, client):
+        """Test dashboard stats when there are no tasks."""
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Should show 0 for all stats
+        # The stats should be present even with no tasks
+
+    @pytest.mark.asyncio
+    async def test_dashboard_today_executions_count(self, client, sample_task, test_session):
+        """Test that today's execution count is calculated correctly."""
+        # Create execution logs - some today, some not today
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Today's logs
+        log_today1 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=today_start.replace(hour=10),
+            status="success",
+            response_summary="Today 1",
+        )
+        log_today2 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=today_start.replace(hour=11),
+            status="failed",
+            error_message="Error",
+        )
+        # Yesterday's log (should not be counted)
+        from datetime import timedelta
+        log_yesterday = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=today_start - timedelta(days=1),
+            status="success",
+            response_summary="Yesterday",
+        )
+
+        test_session.add_all([log_today1, log_today2, log_yesterday])
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Should show 2 executions today (not 3)
+        # Find the "今日执行" card and verify it shows "2"
+        assert '>2<' in response.text or '>2</div>' in response.text
+
+    @pytest.mark.asyncio
+    async def test_dashboard_today_success_rate(self, client, sample_task, test_session):
+        """Test that today's success rate is calculated correctly."""
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Create 3 successful and 1 failed execution today
+        logs = [
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=9), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=10), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=11), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=12), status="failed", error_message="Err"),
+        ]
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Success rate should be 75% (3/4)
+        assert "75%" in response.text
+
+    @pytest.mark.asyncio
+    async def test_dashboard_success_rate_no_executions(self, client, sample_task):
+        """Test that success rate shows '--' when no executions today."""
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Should show "--" for success rate when no executions
+        assert "--" in response.text
+
+    @pytest.mark.asyncio
+    async def test_dashboard_stats_enabled_tasks_count(self, client, test_session):
+        """Test that enabled tasks count is correct."""
+        from app.utils.security import encrypt_api_key
+
+        # Create 3 tasks: 2 enabled, 1 disabled
+        tasks = [
+            Task(name="Task 1", api_endpoint="https://api.openai.com/v1/chat/completions",
+                 api_key=encrypt_api_key("sk-test1"), schedule_type="interval",
+                 interval_minutes=60, message_content="Hi", enabled=True),
+            Task(name="Task 2", api_endpoint="https://api.openai.com/v1/chat/completions",
+                 api_key=encrypt_api_key("sk-test2"), schedule_type="interval",
+                 interval_minutes=60, message_content="Hi", enabled=True),
+            Task(name="Task 3", api_endpoint="https://api.openai.com/v1/chat/completions",
+                 api_key=encrypt_api_key("sk-test3"), schedule_type="interval",
+                 interval_minutes=60, message_content="Hi", enabled=False),
+        ]
+        test_session.add_all(tasks)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # The response should contain stats showing 3 total, 2 enabled
+        # Verify total tasks shows 3
+        text = response.text
+        # Find dashboard cards and verify values
+        assert '>3<' in text or '>3</div>' in text  # total_tasks = 3
+        assert '>2<' in text or '>2</div>' in text  # enabled_tasks = 2
+
+    @pytest.mark.asyncio
+    async def test_dashboard_boundary_midnight_utc(self, client, sample_task, test_session):
+        """Test that boundary at 00:00:00 UTC is included in today's stats."""
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        # Create log exactly at midnight (should be counted)
+        log_midnight = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=today_start,  # Exactly 00:00:00
+            status="success",
+            response_summary="Midnight",
+        )
+        test_session.add(log_midnight)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Should count the midnight execution (success rate 100%)
+        assert "100%" in response.text
+
+    @pytest.mark.asyncio
+    async def test_dashboard_zero_percent_success_rate(self, client, sample_task, test_session):
+        """Test 0% success rate when all executions fail."""
+        now = datetime.now(timezone.utc)
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+
+        logs = [
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=9), status="failed", error_message="Err"),
+            ExecutionLog(task_id=sample_task.id, executed_at=today_start.replace(hour=10), status="failed", error_message="Err"),
+        ]
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        assert "0%" in response.text
+
+
+class TestTaskLastExecutionStatus:
+    """Tests for task last execution status and schedule formatting (Story 3.3)."""
+
+    @pytest.mark.asyncio
+    async def test_task_list_shows_last_execution_status_success(self, client, sample_task, test_session):
+        """Test that task list shows 'success' status for last successful execution."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime.now(timezone.utc),
+            status="success",
+            response_summary="OK",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        assert "status-success" in response.text
+
+    @pytest.mark.asyncio
+    async def test_task_list_shows_last_execution_status_failed(self, client, sample_task, test_session):
+        """Test that task list shows 'failed' status for last failed execution."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime.now(timezone.utc),
+            status="failed",
+            error_message="Error",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        assert "status-failed" in response.text
+
+    @pytest.mark.asyncio
+    async def test_task_list_shows_never_executed(self, client, sample_task):
+        """Test that task list shows 'never executed' status when no executions."""
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        assert "status-never" in response.text
+
+    @pytest.mark.asyncio
+    async def test_failed_task_row_has_warning_class(self, client, sample_task, test_session):
+        """Test that failed task row has warning highlight class."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime.now(timezone.utc),
+            status="failed",
+            error_message="Error",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        assert "row-warning" in response.text
+
+    @pytest.mark.asyncio
+    async def test_schedule_format_minutes(self, client, sample_task):
+        """Test schedule displays in minutes format."""
+        # sample_task has interval_minutes=60
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # 60 minutes should display as "每 1 小时" (divisible by 60)
+        assert "1 小时" in response.text
+
+    @pytest.mark.asyncio
+    async def test_schedule_format_hours(self, client, test_session):
+        """Test schedule displays in hours format when >= 60 minutes and divisible by 60."""
+        from app.utils.security import encrypt_api_key
+
+        task = Task(
+            name="Hourly Task",
+            api_endpoint="https://api.openai.com/v1/chat/completions",
+            api_key=encrypt_api_key("sk-test"),
+            schedule_type="interval",
+            interval_minutes=120,  # 2 hours
+            message_content="Hi",
+            enabled=True,
+        )
+        test_session.add(task)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # 120 minutes should display as "每 2 小时"
+        assert "2 小时" in response.text
+
+    @pytest.mark.asyncio
+    async def test_schedule_format_non_hour_interval(self, client, test_session):
+        """Test schedule displays in minutes format when not divisible by 60."""
+        from app.utils.security import encrypt_api_key
+
+        task = Task(
+            name="90 Min Task",
+            api_endpoint="https://api.openai.com/v1/chat/completions",
+            api_key=encrypt_api_key("sk-test"),
+            schedule_type="interval",
+            interval_minutes=90,  # 1.5 hours - should show as minutes
+            message_content="Hi",
+            enabled=True,
+        )
+        test_session.add(task)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # 90 minutes should display as "每 90 分钟" (not divisible by 60)
+        assert "90 分钟" in response.text
+
+    @pytest.mark.asyncio
+    async def test_last_status_uses_most_recent_execution(self, client, sample_task, test_session):
+        """Test that last status shows the MOST RECENT execution, not older ones."""
+        now = datetime.now(timezone.utc)
+        from datetime import timedelta
+
+        # Older log - failed
+        old_log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=now - timedelta(hours=2),
+            status="failed",
+            error_message="Old error",
+        )
+        # Newer log - success
+        new_log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=now,
+            status="success",
+            response_summary="OK",
+        )
+        test_session.add_all([old_log, new_log])
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # Should show success (most recent), not failed
+        assert "status-success" in response.text

@@ -3,13 +3,15 @@
 Server-side rendered pages using Jinja2 templates.
 """
 
+import asyncio
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from pydantic import ValidationError
-from sqlalchemy import select, desc, func
+from sqlalchemy import select, desc, func, case
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -26,6 +28,44 @@ router = APIRouter(tags=["web"])
 templates = Jinja2Templates(directory="templates")
 
 
+async def get_dashboard_stats(session: AsyncSession) -> dict:
+    """Get dashboard statistics for the task list page."""
+    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Query for task counts
+    task_query = select(
+        func.count(Task.id).label("total"),
+        func.sum(case((Task.enabled == True, 1), else_=0)).label("enabled"),
+    )
+
+    # Query for today's execution stats
+    exec_query = select(
+        func.count(ExecutionLog.id).label("count"),
+        func.sum(case((ExecutionLog.status == "success", 1), else_=0)).label("success"),
+    ).where(ExecutionLog.executed_at >= today_start)
+
+    # Execute both queries in parallel
+    task_result, exec_result = await asyncio.gather(
+        session.execute(task_query),
+        session.execute(exec_query),
+    )
+
+    task_stats = task_result.one()
+    exec_stats = exec_result.one()
+
+    # Calculate success rate (format in backend to avoid frontend division by zero)
+    today_count = exec_stats.count or 0
+    today_success = exec_stats.success or 0
+    success_rate = f"{int(today_success / today_count * 100)}%" if today_count > 0 else "--"
+
+    return {
+        "total_tasks": task_stats.total or 0,
+        "enabled_tasks": int(task_stats.enabled or 0),
+        "today_executions": today_count,
+        "today_success_rate": success_rate,
+    }
+
+
 @router.get("/")
 async def list_tasks(
     request: Request,
@@ -34,28 +74,47 @@ async def list_tasks(
     message: Optional[str] = None,
     message_type: str = "success",
 ):
-    """Display task list page."""
-    # Subquery to get max executed_at per task (single query, avoids N+1)
+    """Display task list page with dashboard stats."""
+    # Get dashboard statistics
+    stats = await get_dashboard_stats(session)
+
+    # Use window function to get each task's latest execution (both time and status)
+    # Performance Note: For large datasets, consider adding index on (task_id, executed_at DESC)
     last_exec_subquery = (
         select(
             ExecutionLog.task_id,
-            func.max(ExecutionLog.executed_at).label("last_executed_at")
+            ExecutionLog.executed_at.label("last_executed_at"),
+            ExecutionLog.status.label("last_status"),
+            func.row_number().over(
+                partition_by=ExecutionLog.task_id,
+                order_by=ExecutionLog.executed_at.desc()
+            ).label("rn")
         )
-        .group_by(ExecutionLog.task_id)
         .subquery()
     )
 
-    # Get all tasks with last execution time in single query
+    # Only take rn=1 (most recent execution per task)
+    latest_exec = (
+        select(
+            last_exec_subquery.c.task_id,
+            last_exec_subquery.c.last_executed_at,
+            last_exec_subquery.c.last_status,
+        )
+        .where(last_exec_subquery.c.rn == 1)
+        .subquery()
+    )
+
+    # Get all tasks with last execution time and status in single query
     result = await session.execute(
-        select(Task, last_exec_subquery.c.last_executed_at)
-        .outerjoin(last_exec_subquery, Task.id == last_exec_subquery.c.task_id)
+        select(Task, latest_exec.c.last_executed_at, latest_exec.c.last_status)
+        .outerjoin(latest_exec, Task.id == latest_exec.c.task_id)
         .order_by(Task.id)
     )
     rows = result.all()
 
     # Build task list
     task_list = []
-    for task, last_executed_at in rows:
+    for task, last_executed_at, last_status in rows:
         task_dict = {
             "id": task.id,
             "name": task.name,
@@ -65,13 +124,14 @@ async def list_tasks(
             "enabled": task.enabled,
             "last_executed_at": last_executed_at.strftime("%Y-%m-%d %H:%M")
                                if last_executed_at else None,
+            "last_execution_status": last_status,  # 'success', 'failed', or None
         }
         task_list.append(task_dict)
 
     return render_template(
         request,
         "tasks/list.html",
-        {"tasks": task_list, "message": message, "message_type": message_type},
+        {"tasks": task_list, "stats": stats, "message": message, "message_type": message_type},
     )
 
 
