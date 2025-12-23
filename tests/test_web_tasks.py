@@ -495,3 +495,90 @@ class TestSchedulerErrorHandling:
             await test_session.refresh(sample_task)
             assert sample_task.name == "Updated Task"
             assert sample_task.interval_minutes == 30
+
+
+class TestLogsPage:
+    """Tests for task execution logs page."""
+
+    @pytest.mark.asyncio
+    async def test_logs_page_renders(self, client, sample_task, test_session):
+        """Test that the logs page renders successfully."""
+        # Create some logs
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
+            status="success",
+            response_summary="Test response",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        assert "执行日志" in response.text
+        assert "Sample Task" in response.text
+        assert "成功" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_page_task_not_found(self, client):
+        """Test redirect when task does not exist."""
+        response = await client.get("/tasks/999/logs", follow_redirects=False)
+
+        assert response.status_code == 303
+        assert "message_type=error" in response.headers["location"]
+
+    @pytest.mark.asyncio
+    async def test_logs_page_empty(self, client, sample_task):
+        """Test logs page with no execution history."""
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        assert "暂无执行记录" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_page_shows_failed_status(self, client, sample_task, test_session):
+        """Test that failed logs show error message."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
+            status="failed",
+            error_message="Connection timeout",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        assert "失败" in response.text
+        assert "Connection timeout" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_page_order_descending(self, client, sample_task, test_session):
+        """Test that logs are displayed in descending order."""
+        # Create logs with different times
+        log1 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="First",
+        )
+        log2 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="Second",
+        )
+        test_session.add(log1)
+        test_session.add(log2)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        # Second should appear before First (newest first)
+        text = response.text
+        second_pos = text.find("Second")
+        first_pos = text.find("First")
+        assert second_pos < first_pos

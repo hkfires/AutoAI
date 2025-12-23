@@ -46,13 +46,13 @@ development_status:
   epic-1-retrospective: optional
 
   # Epic 2: 核心定时执行引擎
-  epic-2: in-progress
+  epic-2: done
   2-1-task-log-data-model: done
   2-2-task-management-api: done
   2-3-openai-api-service: done
   2-4-scheduled-execution-engine: done
   2-5-task-management-web-ui: done
-  2-6-execution-log-viewer: backlog
+  2-6-execution-log-viewer: done
   epic-2-retrospective: optional
 
   # Epic 3: Web 管理后台与认证 [Phase 2]

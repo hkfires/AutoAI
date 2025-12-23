@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+
+{% block title %}执行日志 - {{ task.name }} - AutoAI{% endblock %}
+
+{% block content %}
+<h1>执行日志：{{ task.name }}</h1>
+
+<p style="margin-bottom: 20px;">
+    <a href="/" class="btn btn-secondary">&larr; 返回任务列表</a>
+</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>执行时间</th>
+            <th>状态</th>
+            <th>响应/错误信息</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for log in logs %}
+        <tr>
+            <td><span class="local-time" data-utc="{{ log.executed_at.isoformat() }}Z">{{ log.executed_at.strftime('%Y-%m-%d %H:%M:%S') }}</span></td>
+            <td>
+                {% if log.status == 'success' %}
+                    <span class="status-enabled">✓ 成功</span>
+                {% else %}
+                    <span class="status-disabled">✗ 失败</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if log.status == 'success' %}
+                    {{ log.response_summary or '-' }}
+                {% else %}
+                    <span style="color: #dc3545;">{{ log.error_message or '未知错误' }}</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="3" style="text-align: center; color: #666;">
+                暂无执行记录
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<p style="margin-top: 10px; color: #666; font-size: 0.9em;">
+    显示最近 {{ logs|length }} 条记录（最多 50 条）
+</p>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // Convert UTC times to local timezone
+    document.querySelectorAll('.local-time').forEach(function(el) {
+        var utc = el.getAttribute('data-utc');
+        if (utc) {
+            var date = new Date(utc);
+            var options = { year: 'numeric', month: '2-digit', day: '2-digit',
+                           hour: '2-digit', minute: '2-digit', second: '2-digit' };
+            el.textContent = date.toLocaleString('zh-CN', options);
+        }
+    });
+</script>
+{% endblock %}

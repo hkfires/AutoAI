@@ -3,11 +3,13 @@
 REST API endpoints for task management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_session
-from app.schemas import TaskCreate, TaskUpdate, TaskResponse
+from app.models import Task, ExecutionLog
+from app.schemas import TaskCreate, TaskUpdate, TaskResponse, ExecutionLogResponse
 from app.services import task_service
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
@@ -90,3 +92,31 @@ async def delete_task(task_id: int, session: AsyncSession = Depends(get_session)
         raise HTTPException(status_code=404, detail="Task not found")
     await task_service.delete_task(session, task)
     return None
+
+
+@router.get("/{task_id}/logs", response_model=list[ExecutionLogResponse])
+async def get_task_logs(
+    task_id: int,
+    limit: int = Query(default=50, ge=1, le=100, description="Number of logs to return (1-100)"),
+    session: AsyncSession = Depends(get_session),
+):
+    """Get execution logs for a specific task.
+
+    Returns logs ordered by execution time (newest first).
+    Default limit is 50 records, maximum is 100.
+    """
+    # Check task exists
+    task = await session.get(Task, task_id)
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Query logs
+    result = await session.execute(
+        select(ExecutionLog)
+        .where(ExecutionLog.task_id == task_id)
+        .order_by(desc(ExecutionLog.executed_at))
+        .limit(limit)
+    )
+    logs = result.scalars().all()
+
+    return logs

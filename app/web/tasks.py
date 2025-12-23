@@ -277,3 +277,34 @@ async def delete_task(
     logger.info(f"Deleted task {task_id}: {task_name}")
 
     return RedirectResponse(url=f"/?message=任务「{task_name}」已删除", status_code=303)
+
+
+@router.get("/tasks/{task_id}/logs")
+async def view_task_logs(
+    request: Request,
+    task_id: int,
+    session: AsyncSession = Depends(get_session),
+):
+    """Display task execution logs page."""
+    # Get task
+    task = await session.get(Task, task_id)
+    if task is None:
+        return RedirectResponse(
+            url="/?message=任务不存在&message_type=error",
+            status_code=303
+        )
+
+    # Get logs (newest first, limit 50)
+    result = await session.execute(
+        select(ExecutionLog)
+        .where(ExecutionLog.task_id == task_id)
+        .order_by(desc(ExecutionLog.executed_at))
+        .limit(50)
+    )
+    logs = result.scalars().all()
+
+    return templates.TemplateResponse(
+        request,
+        "tasks/logs.html",
+        {"task": task, "logs": logs},
+    )
