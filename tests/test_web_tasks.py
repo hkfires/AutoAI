@@ -904,3 +904,309 @@ class TestTaskLastExecutionStatus:
         assert response.status_code == 200
         # Should show success (most recent), not failed
         assert "status-success" in response.text
+
+
+class TestLogsFilteringAndPagination:
+    """Tests for execution logs filtering and pagination (Story 3.4)."""
+
+    @pytest.mark.asyncio
+    async def test_logs_status_filter_success(self, client, sample_task, test_session):
+        """Test filtering logs by success status."""
+        # Create mixed logs
+        log_success = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="OK",
+        )
+        log_failed = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc),
+            status="failed",
+            error_message="Error",
+        )
+        test_session.add_all([log_success, log_failed])
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs?status=success")
+
+        assert response.status_code == 200
+        assert "OK" in response.text
+        assert "Error" not in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_status_filter_failed(self, client, sample_task, test_session):
+        """Test filtering logs by failed status."""
+        log_success = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="OK",
+        )
+        log_failed = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc),
+            status="failed",
+            error_message="Error",
+        )
+        test_session.add_all([log_success, log_failed])
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs?status=failed")
+
+        assert response.status_code == 200
+        assert "Error" in response.text
+        # Check that success log is not in the response (not in table body)
+        # The summary "OK" should not appear as a log entry
+        assert response.text.count("OK") == 0 or "response_summary" not in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_date_range_filter(self, client, sample_task, test_session):
+        """Test filtering logs by date range."""
+        log_in_range = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="InRange",
+        )
+        log_out_of_range = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 10, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="OutOfRange",
+        )
+        test_session.add_all([log_in_range, log_out_of_range])
+        await test_session.commit()
+
+        response = await client.get(
+            f"/tasks/{sample_task.id}/logs?start_date=2024-01-14&end_date=2024-01-16"
+        )
+
+        assert response.status_code == 200
+        assert "InRange" in response.text
+        assert "OutOfRange" not in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_pagination_returns_20_per_page(self, client, sample_task, test_session):
+        """Test that pagination returns 20 records per page."""
+        # Create 25 logs
+        logs = []
+        for i in range(25):
+            log = ExecutionLog(
+                task_id=sample_task.id,
+                executed_at=datetime(2024, 1, 15, i % 24, i % 60, tzinfo=timezone.utc),
+                status="success",
+                response_summary=f"Log{i}",
+            )
+            logs.append(log)
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        # Should show pagination info
+        assert "第 1 / 2 页" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_pagination_page_2(self, client, sample_task, test_session):
+        """Test accessing page 2 of logs."""
+        # Create 25 logs
+        logs = []
+        for i in range(25):
+            log = ExecutionLog(
+                task_id=sample_task.id,
+                executed_at=datetime(2024, 1, 15, i % 24, i % 60, tzinfo=timezone.utc),
+                status="success",
+                response_summary=f"Log{i:02d}",
+            )
+            logs.append(log)
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs?page=2")
+
+        assert response.status_code == 200
+        assert "第 2 / 2 页" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_pagination_preserves_filters(self, client, sample_task, test_session):
+        """Test that pagination links preserve filter parameters."""
+        # Create logs
+        logs = []
+        for i in range(25):
+            log = ExecutionLog(
+                task_id=sample_task.id,
+                executed_at=datetime(2024, 1, 15, i % 24, i % 60, tzinfo=timezone.utc),
+                status="success",
+                response_summary=f"Log{i}",
+            )
+            logs.append(log)
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs?status=success")
+
+        assert response.status_code == 200
+        # Pagination links should include status parameter
+        assert "status=success" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_invalid_page_defaults_to_1(self, client, sample_task, test_session):
+        """Test that invalid page parameter defaults to page 1."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="Test",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        # Test with page=0
+        response = await client.get(f"/tasks/{sample_task.id}/logs?page=0")
+        assert response.status_code == 200
+
+        # Test with page=-1
+        response = await client.get(f"/tasks/{sample_task.id}/logs?page=-1")
+        assert response.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_logs_invalid_status_ignored(self, client, sample_task, test_session):
+        """Test that invalid status parameter is ignored."""
+        log_success = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="OK",
+        )
+        log_failed = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc),
+            status="failed",
+            error_message="Error",
+        )
+        test_session.add_all([log_success, log_failed])
+        await test_session.commit()
+
+        # Invalid status should show all logs
+        response = await client.get(f"/tasks/{sample_task.id}/logs?status=invalid")
+
+        assert response.status_code == 200
+        # Both logs should be visible
+        assert "OK" in response.text
+        assert "Error" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_combined_filters(self, client, sample_task, test_session):
+        """Test combining status, date, and pagination filters."""
+        # Create logs in different dates
+        log1 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="Match",
+        )
+        log2 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 15, 11, 0, tzinfo=timezone.utc),
+            status="failed",
+            error_message="NoMatch-Status",
+        )
+        log3 = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 10, 10, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="NoMatch-Date",
+        )
+        test_session.add_all([log1, log2, log3])
+        await test_session.commit()
+
+        response = await client.get(
+            f"/tasks/{sample_task.id}/logs?status=success&start_date=2024-01-14&end_date=2024-01-16"
+        )
+
+        assert response.status_code == 200
+        assert "Match" in response.text
+        assert "NoMatch-Status" not in response.text
+        assert "NoMatch-Date" not in response.text
+
+
+class TestLogsStatistics:
+    """Tests for execution log statistics (Story 3.4)."""
+
+    @pytest.mark.asyncio
+    async def test_logs_shows_statistics(self, client, sample_task, test_session):
+        """Test that logs page displays statistics."""
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime.now(timezone.utc),
+            status="success",
+            response_summary="OK",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        # Should show stats section
+        assert "总执行次数" in response.text or "dashboard-card" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_stats_success_rate(self, client, sample_task, test_session):
+        """Test that success rate is calculated correctly."""
+        # Create 3 success, 1 failed
+        logs = [
+            ExecutionLog(task_id=sample_task.id, executed_at=datetime.now(timezone.utc), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=datetime.now(timezone.utc), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=datetime.now(timezone.utc), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=datetime.now(timezone.utc), status="failed", error_message="Err"),
+        ]
+        test_session.add_all(logs)
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        assert "75%" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_stats_7_day_trend(self, client, sample_task, test_session):
+        """Test that 7-day trend is calculated correctly."""
+        from datetime import timedelta
+        now = datetime.now(timezone.utc)
+
+        # Create logs within 7 days
+        logs = [
+            ExecutionLog(task_id=sample_task.id, executed_at=now - timedelta(days=1), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=now - timedelta(days=2), status="success", response_summary="OK"),
+            ExecutionLog(task_id=sample_task.id, executed_at=now - timedelta(days=3), status="failed", error_message="Err"),
+        ]
+        # Create log outside 7 days (should not be counted in trend)
+        old_log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=now - timedelta(days=10),
+            status="success",
+            response_summary="Old",
+        )
+        test_session.add_all(logs + [old_log])
+        await test_session.commit()
+
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        # Should show 7-day trend: 3 executions, 2 success
+        assert "共执行 3 次" in response.text
+        assert "成功 2 次" in response.text
+
+    @pytest.mark.asyncio
+    async def test_logs_stats_empty(self, client, sample_task):
+        """Test stats when no logs exist."""
+        response = await client.get(f"/tasks/{sample_task.id}/logs")
+
+        assert response.status_code == 200
+        # Should show placeholder for success rate
+        assert "--" in response.text
+        # Should show no execution message
+        assert "暂无执行记录" in response.text

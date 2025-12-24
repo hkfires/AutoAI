@@ -45,6 +45,85 @@
 
         /* 警告行高亮 */
         .row-warning { background-color: #fff3cd !important; }
+
+        /* 筛选表单样式 */
+        .filter-form {
+            display: flex;
+            gap: 15px;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .filter-group label {
+            font-size: 0.9em;
+            color: #6c757d;
+        }
+        .filter-group input, .filter-group select {
+            padding: 8px 12px;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            font-size: 1em;
+        }
+
+        /* 分页样式 */
+        .pagination {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .page-link {
+            padding: 8px 16px;
+            background: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            text-decoration: none;
+            color: #212529;
+        }
+        .page-link:hover:not(.disabled) {
+            background: #e9ecef;
+        }
+        .page-link.disabled {
+            color: #6c757d;
+            cursor: not-allowed;
+        }
+        .page-info {
+            color: #6c757d;
+        }
+
+        /* 展开详情样式 */
+        .log-row {
+            cursor: pointer;
+        }
+        .log-row:hover {
+            background: #f8f9fa;
+        }
+        .log-row.expanded {
+            background: #e3f2fd;
+        }
+        .detail-row {
+            background: #f8f9fa;
+        }
+        .detail-row.hidden {
+            display: none;
+        }
+        .detail-content {
+            padding: 15px 20px;
+            border-left: 3px solid #007bff;
+        }
+        .detail-item {
+            margin-bottom: 10px;
+        }
+        .detail-label {
+            font-weight: bold;
+            color: #495057;
+        }
     </style>
     {% block head %}{% endblock %}
 </head>

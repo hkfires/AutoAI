@@ -4,7 +4,7 @@ Server-side rendered pages using Jinja2 templates.
 """
 
 import asyncio
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Form, Request
@@ -14,7 +14,6 @@ from pydantic import ValidationError
 from sqlalchemy import select, desc, func, case
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import aliased
 from loguru import logger
 
 from app.database import get_session
@@ -345,33 +344,120 @@ async def delete_task(
     return RedirectResponse(url=f"/?message=任务「{task_name}」已删除", status_code=303)
 
 
+async def get_log_stats(session: AsyncSession, task_id: int) -> dict:
+    """Get execution statistics for a specific task."""
+    # Total and success count
+    stats_query = select(
+        func.count(ExecutionLog.id).label("total"),
+        func.sum(case((ExecutionLog.status == "success", 1), else_=0)).label("success"),
+    ).where(ExecutionLog.task_id == task_id)
+
+    stats_result = await session.execute(stats_query)
+    stats = stats_result.one()
+
+    total = stats.total or 0
+    success = int(stats.success or 0)
+    success_rate = f"{int(success / total * 100)}%" if total > 0 else "--"
+
+    # Last 7 days stats
+    seven_days_ago = datetime.now(timezone.utc) - timedelta(days=7)
+    recent_query = select(
+        func.count(ExecutionLog.id).label("count"),
+        func.sum(case((ExecutionLog.status == "success", 1), else_=0)).label("success"),
+    ).where(
+        ExecutionLog.task_id == task_id,
+        ExecutionLog.executed_at >= seven_days_ago,
+    )
+
+    recent_result = await session.execute(recent_query)
+    recent = recent_result.one()
+
+    recent_count = recent.count or 0
+    recent_success = int(recent.success or 0)
+    recent_trend = f"共执行 {recent_count} 次，成功 {recent_success} 次" if recent_count > 0 else "暂无执行记录"
+
+    return {
+        "total_executions": total,
+        "success_rate": success_rate,
+        "recent_trend": recent_trend,
+    }
+
+
 @router.get("/tasks/{task_id}/logs")
 async def view_task_logs(
     request: Request,
     task_id: int,
     session: AsyncSession = Depends(get_session),
     _: bool = Depends(require_auth_web),
+    status: Optional[str] = None,  # success | failed | None
+    start_date: Optional[str] = None,  # YYYY-MM-DD
+    end_date: Optional[str] = None,  # YYYY-MM-DD
+    page: int = 1,
 ):
-    """Display task execution logs page."""
-    # Get task
+    """Display task execution logs with filtering and pagination."""
     task = await session.get(Task, task_id)
     if task is None:
-        return RedirectResponse(
-            url="/?message=任务不存在&message_type=error",
-            status_code=303
-        )
+        return RedirectResponse(url="/?message=任务不存在&message_type=error", status_code=303)
 
-    # Get logs (newest first, limit 50)
+    # Build base query
+    query = select(ExecutionLog).where(ExecutionLog.task_id == task_id)
+
+    # Apply status filter
+    if status in ("success", "failed"):
+        query = query.where(ExecutionLog.status == status)
+
+    # Apply date range filter
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            query = query.where(ExecutionLog.executed_at >= start_dt)
+        except ValueError:
+            pass  # Invalid date format, ignore
+
+    if end_date:
+        try:
+            # End date is inclusive, so add 1 day
+            end_dt = datetime.strptime(end_date, "%Y-%m-%d").replace(tzinfo=timezone.utc)
+            end_dt = end_dt + timedelta(days=1)
+            query = query.where(ExecutionLog.executed_at < end_dt)
+        except ValueError:
+            pass
+
+    # Count total for pagination
+    count_query = select(func.count()).select_from(query.subquery())
+    total_count = (await session.execute(count_query)).scalar() or 0
+
+    # Pagination
+    page_size = 20
+    total_pages = (total_count + page_size - 1) // page_size  # Ceiling division
+    page = max(1, min(page, total_pages)) if total_pages > 0 else 1
+    offset = (page - 1) * page_size
+
+    # Get paginated logs
     result = await session.execute(
-        select(ExecutionLog)
-        .where(ExecutionLog.task_id == task_id)
-        .order_by(desc(ExecutionLog.executed_at))
-        .limit(50)
+        query.order_by(desc(ExecutionLog.executed_at))
+        .offset(offset)
+        .limit(page_size)
     )
     logs = result.scalars().all()
+
+    # Get statistics
+    log_stats = await get_log_stats(session, task_id)
 
     return render_template(
         request,
         "tasks/logs.html",
-        {"task": task, "logs": logs},
+        {
+            "task": task,
+            "logs": logs,
+            "stats": log_stats,
+            "page": page,
+            "total_pages": total_pages,
+            "total_count": total_count,
+            "filters": {
+                "status": status,
+                "start_date": start_date,
+                "end_date": end_date,
+            },
+        },
     )
