@@ -44,7 +44,7 @@
         <input type="date" name="end_date" id="end_date" value="{{ filters.end_date or '' }}">
     </div>
     <button type="submit" class="btn btn-primary">筛选</button>
-    <a href="/tasks/{{ task.id }}/logs" class="btn btn-secondary">清除</a>
+    <button type="button" class="btn btn-secondary" onclick="window.location.href='/tasks/{{ task.id }}/logs'">清除</button>
 </form>
 
 <table>

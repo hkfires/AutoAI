@@ -1,6 +1,6 @@
 # AI Agent Tools
-_bmad/
 .agent/
+.agents/
 .claude/
 .gemini/
 CLAUDE.md
@@ -41,5 +41,5 @@ logs/*.log
 Thumbs.db
 
 # BMAD (keep for development reference)
-# _bmad/
+_bmad/
 # _bmad-output/

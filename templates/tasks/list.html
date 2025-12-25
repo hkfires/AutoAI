@@ -71,8 +71,8 @@
                 {% endif %}
             </td>
             <td>
-                <a href="/tasks/{{ task.id }}/edit" class="btn btn-secondary">编辑</a>
-                <a href="/tasks/{{ task.id }}/logs" class="btn btn-secondary">日志</a>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='/tasks/{{ task.id }}/edit'">编辑</button>
+                <button type="button" class="btn btn-secondary" onclick="window.location.href='/tasks/{{ task.id }}/logs'">日志</button>
                 <form action="/tasks/{{ task.id }}/delete" method="POST" style="display: inline;">
                     <button type="submit" class="btn btn-danger"
                             onclick="return confirm('确定要删除任务「{{ task.name }}」吗？')">删除</button>
