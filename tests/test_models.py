@@ -44,6 +44,7 @@ async def test_create_task(async_session):
         schedule_type="interval",
         interval_minutes=30,
         message_content="Hello, World!",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -66,6 +67,7 @@ async def test_task_with_fixed_time_schedule(async_session):
         schedule_type="fixed_time",
         fixed_time="09:30",
         message_content="Good morning!",
+        model="gpt-4",
         enabled=False,
     )
     async_session.add(task)
@@ -89,6 +91,7 @@ async def test_create_execution_log_with_foreign_key(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -121,6 +124,7 @@ async def test_execution_log_with_error(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -151,6 +155,7 @@ async def test_task_execution_logs_relationship(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -182,6 +187,7 @@ async def test_cascade_delete_execution_logs(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -223,6 +229,7 @@ async def test_task_updated_at_changes_on_update(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -256,6 +263,7 @@ async def test_task_repr(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()
@@ -277,6 +285,7 @@ async def test_execution_log_repr(async_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Test",
+        model="gpt-4",
     )
     async_session.add(task)
     await async_session.commit()

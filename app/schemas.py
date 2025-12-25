@@ -20,6 +20,7 @@ ScheduleType = Literal["interval", "fixed_time"]
 MAX_NAME_LENGTH = 100
 MAX_API_ENDPOINT_LENGTH = 500
 MAX_API_KEY_LENGTH = 500
+MAX_MODEL_LENGTH = 100
 
 
 class TaskBase(BaseModel):
@@ -31,6 +32,7 @@ class TaskBase(BaseModel):
     interval_minutes: Optional[int] = None
     fixed_time: Optional[str] = None  # HH:MM
     message_content: str = Field(..., min_length=1)
+    model: str = Field(..., min_length=1, max_length=MAX_MODEL_LENGTH)
     enabled: bool = True
 
     @field_validator("fixed_time")
@@ -87,6 +89,7 @@ class TaskUpdate(BaseModel):
     interval_minutes: Optional[int] = None
     fixed_time: Optional[str] = None
     message_content: Optional[str] = Field(None, min_length=1)
+    model: Optional[str] = Field(None, min_length=1, max_length=MAX_MODEL_LENGTH)
     enabled: Optional[bool] = None
 
     @field_validator("fixed_time")

@@ -32,6 +32,7 @@ async def create_task(session: AsyncSession, task_data: TaskCreate) -> Task:
         interval_minutes=task_data.interval_minutes,
         fixed_time=task_data.fixed_time,
         message_content=task_data.message_content,
+        model=task_data.model,
         enabled=task_data.enabled,
     )
     session.add(task)

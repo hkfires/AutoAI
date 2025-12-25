@@ -26,6 +26,21 @@
     </div>
 
     <div class="form-group">
+        <label for="model_select">AI 模型 *</label>
+        <select id="model_select" onchange="toggleCustomModel(true)">
+            <option value="gemini-claude-sonnet-4-5" {% if task and task.model == 'gemini-claude-sonnet-4-5' %}selected{% elif not task %}selected{% endif %}>
+                gemini-claude-sonnet-4-5
+            </option>
+            <option value="custom" {% if task and task.model and task.model != 'gemini-claude-sonnet-4-5' %}selected{% endif %}>
+                自定义...
+            </option>
+        </select>
+        <input type="text" id="model_custom" name="model"
+               value="{{ task.model if task else 'gemini-claude-sonnet-4-5' }}"
+               maxlength="100" placeholder="输入模型名称" required>
+    </div>
+
+    <div class="form-group">
         <label for="schedule_type">调度类型 *</label>
         <select id="schedule_type" name="schedule_type" required onchange="toggleScheduleFields()">
             <option value="interval" {% if not task or task.schedule_type == 'interval' %}selected{% endif %}>
@@ -90,7 +105,27 @@ function toggleScheduleFields() {
     }
 }
 
+function toggleCustomModel(isUserAction) {
+    const modelSelect = document.getElementById('model_select');
+    const modelCustom = document.getElementById('model_custom');
+
+    if (modelSelect.value === 'custom') {
+        modelCustom.style.display = 'block';
+        // Only clear value when user manually selects "custom", not on page load
+        if (isUserAction) {
+            modelCustom.value = '';
+            modelCustom.focus();
+        }
+    } else {
+        modelCustom.style.display = 'none';
+        modelCustom.value = modelSelect.value;
+    }
+}
+
 // Initialize on page load
-document.addEventListener('DOMContentLoaded', toggleScheduleFields);
+document.addEventListener('DOMContentLoaded', function() {
+    toggleScheduleFields();
+    toggleCustomModel(false);
+});
 </script>
 {% endblock %}

@@ -30,6 +30,7 @@ class Task(Base):
     interval_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     fixed_time: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     message_content: Mapped[str] = mapped_column(Text)
+    model: Mapped[str] = mapped_column(String(100))  # AI model name
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

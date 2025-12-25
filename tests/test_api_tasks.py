@@ -79,6 +79,7 @@ VALID_TASK_DATA = {
     "schedule_type": "interval",
     "interval_minutes": 60,
     "message_content": "Hello, AI!",
+    "model": "gemini-claude-sonnet-4-5",
     "enabled": True,
 }
 
@@ -89,6 +90,7 @@ VALID_FIXED_TIME_TASK = {
     "schedule_type": "fixed_time",
     "fixed_time": "09:30",
     "message_content": "Good morning!",
+    "model": "gpt-4",
     "enabled": True,
 }
 
@@ -140,6 +142,7 @@ class TestCreateTask:
             "api_key": "sk-test1234567890abcdef",
             "schedule_type": "fixed_time",
             "message_content": "Hello!",
+            "model": "gpt-4",
             "enabled": True,
         }
         response = await client.post("/api/tasks", json=invalid_data)

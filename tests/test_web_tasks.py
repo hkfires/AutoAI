@@ -84,6 +84,7 @@ async def sample_task(test_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Hello AI",
+        model="gemini-claude-sonnet-4-5",
         enabled=True,
     )
     test_session.add(task)
@@ -167,6 +168,7 @@ class TestNewTaskForm:
                 "schedule_type": "interval",
                 "interval_minutes": "60",
                 "message_content": "Hello AI",
+                "model": "gemini-claude-sonnet-4-5",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -194,6 +196,7 @@ class TestNewTaskForm:
                 "api_key": "sk-test123",
                 "schedule_type": "interval",
                 "message_content": "Hello AI",
+                "model": "gpt-4",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -236,6 +239,7 @@ class TestEditTaskForm:
                 "schedule_type": "interval",
                 "interval_minutes": "30",
                 "message_content": "Updated message",
+                "model": "gemini-claude-sonnet-4-5",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -263,6 +267,7 @@ class TestEditTaskForm:
                 "schedule_type": "interval",
                 "interval_minutes": "30",
                 "message_content": "Updated message",
+                "model": "gemini-claude-sonnet-4-5",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -336,6 +341,7 @@ class TestScheduleTypeToggle:
                 "schedule_type": "fixed_time",
                 "fixed_time": "09:00",
                 "message_content": "Good morning!",
+                "model": "gpt-4",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -367,6 +373,7 @@ class TestFormDataPreservation:
                 "schedule_type": "interval",
                 # Missing interval_minutes - should fail validation
                 "message_content": "Test message",
+                "model": "gpt-4",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -390,6 +397,7 @@ class TestFormDataPreservation:
                 "schedule_type": "fixed_time",
                 "fixed_time": "invalid",  # Invalid format - should fail validation
                 "message_content": "Updated message",
+                "model": "gpt-4",
                 "enabled": "true",
             },
             follow_redirects=False,
@@ -426,6 +434,7 @@ class TestDatabaseErrorHandling:
                     "schedule_type": "interval",
                     "interval_minutes": "60",
                     "message_content": "Hello",
+                    "model": "gemini-claude-sonnet-4-5",
                     "enabled": "true",
                 },
                 follow_redirects=False,
@@ -457,6 +466,7 @@ class TestSchedulerErrorHandling:
                     "schedule_type": "interval",
                     "interval_minutes": "60",
                     "message_content": "Hello",
+                    "model": "gemini-claude-sonnet-4-5",
                     "enabled": "true",
                 },
                 follow_redirects=False,
@@ -489,6 +499,7 @@ class TestSchedulerErrorHandling:
                     "schedule_type": "interval",
                     "interval_minutes": "30",
                     "message_content": "Updated message",
+                    "model": "gemini-claude-sonnet-4-5",
                     "enabled": "true",
                 },
                 follow_redirects=False,
@@ -696,13 +707,13 @@ class TestDashboardStats:
         tasks = [
             Task(name="Task 1", api_endpoint="https://api.openai.com/v1/chat/completions",
                  api_key=encrypt_api_key("sk-test1"), schedule_type="interval",
-                 interval_minutes=60, message_content="Hi", enabled=True),
+                 interval_minutes=60, message_content="Hi", model="gpt-4", enabled=True),
             Task(name="Task 2", api_endpoint="https://api.openai.com/v1/chat/completions",
                  api_key=encrypt_api_key("sk-test2"), schedule_type="interval",
-                 interval_minutes=60, message_content="Hi", enabled=True),
+                 interval_minutes=60, message_content="Hi", model="gpt-4", enabled=True),
             Task(name="Task 3", api_endpoint="https://api.openai.com/v1/chat/completions",
                  api_key=encrypt_api_key("sk-test3"), schedule_type="interval",
-                 interval_minutes=60, message_content="Hi", enabled=False),
+                 interval_minutes=60, message_content="Hi", model="gpt-4", enabled=False),
         ]
         test_session.add_all(tasks)
         await test_session.commit()
@@ -842,6 +853,7 @@ class TestTaskLastExecutionStatus:
             schedule_type="interval",
             interval_minutes=120,  # 2 hours
             message_content="Hi",
+            model="gpt-4",
             enabled=True,
         )
         test_session.add(task)
@@ -865,6 +877,7 @@ class TestTaskLastExecutionStatus:
             schedule_type="interval",
             interval_minutes=90,  # 1.5 hours - should show as minutes
             message_content="Hi",
+            model="gpt-4",
             enabled=True,
         )
         test_session.add(task)

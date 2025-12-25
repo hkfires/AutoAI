@@ -26,10 +26,12 @@ def test_task_create_valid():
         schedule_type="interval",
         interval_minutes=30,
         message_content="Hello!",
+        model="gemini-claude-sonnet-4-5",
     )
 
     assert task.name == "Test Task"
     assert task.api_key == "sk-secret-key"
+    assert task.model == "gemini-claude-sonnet-4-5"
     assert task.enabled is True  # Default
 
 
@@ -44,6 +46,7 @@ def test_task_create_fixed_time():
         schedule_type="fixed_time",
         fixed_time="09:30",
         message_content="Morning report",
+        model="gpt-4",
         enabled=False,
     )
 
@@ -63,6 +66,7 @@ def test_task_create_missing_required_field():
             # Missing api_key
             schedule_type="interval",
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "api_key" in str(exc_info.value)
@@ -96,6 +100,7 @@ def test_task_response_masks_api_key():
         schedule_type="interval",
         interval_minutes=30,
         message_content="Hello",
+        model="gemini-claude-sonnet-4-5",
         enabled=True,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -117,6 +122,7 @@ def test_task_response_masks_short_key():
         schedule_type="interval",
         interval_minutes=30,
         message_content="Hello",
+        model="gpt-4",
         enabled=True,
         created_at=datetime.now(),
         updated_at=datetime.now(),
@@ -139,6 +145,7 @@ def test_task_response_from_attributes():
         interval_minutes = 30
         fixed_time = None
         message_content = "Hello"
+        model = "gemini-claude-sonnet-4-5"
         enabled = True
         created_at = datetime.now()
         updated_at = datetime.now()
@@ -197,6 +204,7 @@ def test_task_create_invalid_schedule_type():
             schedule_type="invalid",  # Invalid type
             interval_minutes=30,
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "schedule_type" in str(exc_info.value)
@@ -214,6 +222,7 @@ def test_task_create_interval_requires_interval_minutes():
             schedule_type="interval",
             # Missing interval_minutes
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "interval_minutes is required" in str(exc_info.value)
@@ -231,6 +240,7 @@ def test_task_create_fixed_time_requires_fixed_time():
             schedule_type="fixed_time",
             # Missing fixed_time
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "fixed_time is required" in str(exc_info.value)
@@ -248,6 +258,7 @@ def test_task_create_invalid_fixed_time_format():
             schedule_type="fixed_time",
             fixed_time="25:00",  # Invalid hour
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "HH:MM" in str(exc_info.value)
@@ -265,6 +276,7 @@ def test_task_create_invalid_interval_minutes():
             schedule_type="interval",
             interval_minutes=0,  # Invalid: must be positive
             message_content="Test",
+            model="gpt-4",
         )
 
     assert "positive" in str(exc_info.value)

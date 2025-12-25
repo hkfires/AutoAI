@@ -159,6 +159,7 @@ async def execute_task(task_id: int) -> None:
                 api_endpoint=task.api_endpoint,
                 api_key=plain_api_key,
                 message_content=task.message_content,
+                model=task.model,
             )
 
             # Success - record result

@@ -84,6 +84,7 @@ async def sample_task(test_session):
         schedule_type="interval",
         interval_minutes=60,
         message_content="Hello AI",
+        model="gemini-claude-sonnet-4-5",
         enabled=True,
     )
     test_session.add(task)

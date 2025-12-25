@@ -156,6 +156,7 @@ async def create_task(
     interval_minutes: Optional[int] = Form(None),
     fixed_time: Optional[str] = Form(None),
     message_content: str = Form(...),
+    model: str = Form(...),
     enabled: Optional[str] = Form(None),
 ):
     """Handle new task form submission."""
@@ -167,6 +168,7 @@ async def create_task(
         "interval_minutes": interval_minutes,
         "fixed_time": fixed_time,
         "message_content": message_content,
+        "model": model,
         "enabled": enabled == "true",
     }
 
@@ -180,6 +182,7 @@ async def create_task(
             interval_minutes=interval_minutes,
             fixed_time=fixed_time,
             message_content=message_content,
+            model=model,
             enabled=enabled == "true",
         )
 
@@ -250,6 +253,7 @@ async def update_task(
     interval_minutes: Optional[int] = Form(None),
     fixed_time: Optional[str] = Form(None),
     message_content: str = Form(...),
+    model: str = Form(...),
     enabled: Optional[str] = Form(None),
 ):
     """Handle edit task form submission."""
@@ -266,6 +270,7 @@ async def update_task(
         "interval_minutes": interval_minutes,
         "fixed_time": fixed_time,
         "message_content": message_content,
+        "model": model,
         "enabled": enabled == "true",
     }
 
@@ -278,6 +283,7 @@ async def update_task(
             "interval_minutes": interval_minutes if schedule_type == "interval" else None,
             "fixed_time": fixed_time if schedule_type == "fixed_time" else None,
             "message_content": message_content,
+            "model": model,
             "enabled": enabled == "true",
         }
 
