@@ -1229,9 +1229,8 @@ class TestLogsStatistics:
         response = await client.get(f"/tasks/{sample_task.id}/logs")
 
         assert response.status_code == 200
-        # Should show 7-day trend: 3 executions, 2 success
-        assert "共执行 3 次" in response.text
-        assert "成功 2 次" in response.text
+        # Should show 7-day trend: 3 executions, 2 success in X / Y format
+        assert "3 / 2" in response.text
 
     @pytest.mark.asyncio
     async def test_logs_stats_empty(self, client, sample_task):
@@ -1241,8 +1240,8 @@ class TestLogsStatistics:
         assert response.status_code == 200
         # Should show placeholder for success rate
         assert "--" in response.text
-        # Should show no execution message
-        assert "暂无执行记录" in response.text
+        # Should show no execution data in X / Y format
+        assert "-- / --" in response.text
 
 
 # =============================================================================

@@ -20,8 +20,8 @@
         <div class="card-label">成功率</div>
     </div>
     <div class="dashboard-card">
-        <div class="card-value" style="font-size: 1em;">{{ stats.recent_trend }}</div>
-        <div class="card-label">最近 7 天</div>
+        <div class="card-value">{% if stats.recent_count > 0 %}{{ stats.recent_count }} / {{ stats.recent_success }}{% else %}-- / --{% endif %}</div>
+        <div class="card-label">最近7天 执行/成功</div>
     </div>
 </div>
 

@@ -392,12 +392,12 @@ async def get_log_stats(session: AsyncSession, task_id: int) -> dict:
 
     recent_count = recent.count or 0
     recent_success = int(recent.success or 0)
-    recent_trend = f"共执行 {recent_count} 次，成功 {recent_success} 次" if recent_count > 0 else "暂无执行记录"
 
     return {
         "total_executions": total,
         "success_rate": success_rate,
-        "recent_trend": recent_trend,
+        "recent_count": recent_count,
+        "recent_success": recent_success,
     }
 
 
