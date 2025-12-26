@@ -22,6 +22,9 @@ from app.utils.security import decrypt_api_key, mask_api_key
 # Global scheduler instance with asyncio support
 scheduler = AsyncIOScheduler()
 
+# Maximum concurrent instances per job (effectively unlimited for fire-and-forget mode)
+MAX_CONCURRENT_INSTANCES = 999999
+
 # Track pending immediate executions for cleanup
 _pending_immediate_tasks: set[asyncio.Task] = set()
 
@@ -117,6 +120,7 @@ def register_task(task: Task) -> None:
         args=[task.id],
         replace_existing=True,
         coalesce=True,
+        max_instances=MAX_CONCURRENT_INSTANCES,
     )
 
     logger.info(f"Registered task {task.id} ({task.name}): {schedule_desc}")

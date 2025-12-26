@@ -18,6 +18,7 @@ def mock_task():
     task.api_key = "encrypted_key"
     task.schedule_type = "interval"
     task.interval_minutes = 60
+    task.interval_seconds = 0
     task.fixed_time = None
     task.message_content = "Hello, AI!"
     task.enabled = True
@@ -50,6 +51,7 @@ def mock_disabled_task():
     task.api_key = "encrypted_key"
     task.schedule_type = "interval"
     task.interval_minutes = 30
+    task.interval_seconds = 0
     task.fixed_time = None
     task.message_content = "Should not run"
     task.enabled = False
