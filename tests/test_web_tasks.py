@@ -117,8 +117,8 @@ class TestListTasksPage:
 
     @pytest.mark.asyncio
     async def test_list_tasks_shows_last_execution_time(self, client, sample_task, test_session):
-        """Test that last execution time is displayed."""
-        # Create execution log
+        """Test that last execution time is displayed in China timezone (UTC+8)."""
+        # Create execution log (UTC time: 2024-01-15 10:30)
         log = ExecutionLog(
             task_id=sample_task.id,
             executed_at=datetime(2024, 1, 15, 10, 30, tzinfo=timezone.utc),
@@ -131,7 +131,27 @@ class TestListTasksPage:
         response = await client.get("/")
 
         assert response.status_code == 200
-        assert "2024-01-15 10:30" in response.text
+        # UTC 10:30 + 8 hours = China time 18:30
+        assert "2024-01-15 18:30" in response.text
+
+    @pytest.mark.asyncio
+    async def test_list_tasks_cross_day_boundary_timezone(self, client, sample_task, test_session):
+        """Test timezone conversion across day boundary (UTC previous day -> China current day)."""
+        # UTC 2024-01-14 17:00 = China 2024-01-15 01:00 (crosses midnight)
+        log = ExecutionLog(
+            task_id=sample_task.id,
+            executed_at=datetime(2024, 1, 14, 17, 0, tzinfo=timezone.utc),
+            status="success",
+            response_summary="Cross-day test",
+        )
+        test_session.add(log)
+        await test_session.commit()
+
+        response = await client.get("/")
+
+        assert response.status_code == 200
+        # UTC 2024-01-14 17:00 + 8 hours = China 2024-01-15 01:00
+        assert "2024-01-15 01:00" in response.text
 
     @pytest.mark.asyncio
     async def test_list_tasks_shows_message(self, client):

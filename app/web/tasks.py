@@ -24,12 +24,18 @@ from app.scheduler import add_job, remove_job, reschedule_job
 from app.web.auth import render_template, require_auth_web
 
 router = APIRouter(tags=["web"])
+
+# China timezone UTC+8
+CHINA_TZ: timezone = timezone(timedelta(hours=8))
 templates = Jinja2Templates(directory="templates")
 
 
 async def get_dashboard_stats(session: AsyncSession) -> dict:
     """Get dashboard statistics for the task list page."""
-    today_start = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+    # Get today's start in China timezone, convert to UTC for database query
+    china_now = datetime.now(CHINA_TZ)
+    china_today_start = china_now.replace(hour=0, minute=0, second=0, microsecond=0)
+    today_start = china_today_start.astimezone(timezone.utc)
 
     # Query for task counts
     task_query = select(
@@ -114,6 +120,13 @@ async def list_tasks(
     # Build task list
     task_list = []
     for task, last_executed_at, last_status in rows:
+        # Convert UTC to China timezone for display
+        if last_executed_at:
+            china_time = last_executed_at.replace(tzinfo=timezone.utc).astimezone(CHINA_TZ)
+            last_executed_str = china_time.strftime("%Y-%m-%d %H:%M")
+        else:
+            last_executed_str = None
+
         task_dict = {
             "id": task.id,
             "name": task.name,
@@ -121,8 +134,7 @@ async def list_tasks(
             "interval_minutes": task.interval_minutes,
             "fixed_time": task.fixed_time,
             "enabled": task.enabled,
-            "last_executed_at": last_executed_at.strftime("%Y-%m-%d %H:%M")
-                               if last_executed_at else None,
+            "last_executed_at": last_executed_str,
             "last_execution_status": last_status,  # 'success', 'failed', or None
         }
         task_list.append(task_dict)
