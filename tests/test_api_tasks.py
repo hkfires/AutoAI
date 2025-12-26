@@ -282,7 +282,7 @@ class TestUpdateTask:
             json={"schedule_type": "interval"}
         )
         assert response.status_code == 400
-        assert "interval_minutes is required" in response.json()["detail"]
+        assert "interval_minutes or interval_seconds must be greater than 0" in response.json()["detail"]
 
     @pytest.mark.asyncio
     async def test_update_schedule_type_with_value(self, client):

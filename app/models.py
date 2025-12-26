@@ -28,6 +28,7 @@ class Task(Base):
     api_key: Mapped[str] = mapped_column(String(500))  # Encrypted storage
     schedule_type: Mapped[str] = mapped_column(String(20))  # interval | fixed_time
     interval_minutes: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    interval_seconds: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
     fixed_time: Mapped[Optional[str]] = mapped_column(String(5), nullable=True)  # HH:MM
     message_content: Mapped[str] = mapped_column(Text)
     model: Mapped[str] = mapped_column(String(100))  # AI model name

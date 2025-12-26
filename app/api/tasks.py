@@ -75,14 +75,19 @@ async def update_task(
     # Need to merge existing values with update data
     update_dict = task_data.model_dump(exclude_unset=True)
     new_schedule_type = update_dict.get("schedule_type", task.schedule_type)
-    new_interval = update_dict.get("interval_minutes", task.interval_minutes)
+    new_interval_minutes = update_dict.get("interval_minutes", task.interval_minutes)
+    new_interval_seconds = update_dict.get("interval_seconds", task.interval_seconds)
     new_fixed_time = update_dict.get("fixed_time", task.fixed_time)
 
-    if new_schedule_type == "interval" and new_interval is None:
-        raise HTTPException(
-            status_code=400,
-            detail="interval_minutes is required when schedule_type is 'interval'"
-        )
+    if new_schedule_type == "interval":
+        # At least one of interval_minutes or interval_seconds must be > 0
+        minutes = new_interval_minutes or 0
+        seconds = new_interval_seconds or 0
+        if minutes <= 0 and seconds <= 0:
+            raise HTTPException(
+                status_code=400,
+                detail="interval_minutes or interval_seconds must be greater than 0 when schedule_type is 'interval'"
+            )
     if new_schedule_type == "fixed_time" and new_fixed_time is None:
         raise HTTPException(
             status_code=400,
@@ -95,8 +100,9 @@ async def update_task(
             # Switching to interval: clear fixed_time
             update_dict["fixed_time"] = None
         elif new_schedule_type == "fixed_time" and task.schedule_type != "fixed_time":
-            # Switching to fixed_time: clear interval_minutes
+            # Switching to fixed_time: clear interval_minutes and interval_seconds
             update_dict["interval_minutes"] = None
+            update_dict["interval_seconds"] = None
 
         # Create a new TaskUpdate with the modified data
         task_data = TaskUpdate(**update_dict)

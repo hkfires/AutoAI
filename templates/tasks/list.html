@@ -44,10 +44,16 @@
             <td>{{ task.name }}</td>
             <td>
                 {% if task.schedule_type == 'interval' %}
-                    {% if task.interval_minutes >= 60 and task.interval_minutes % 60 == 0 %}
-                        每 {{ task.interval_minutes // 60 }} 小时
+                    {% set mins = task.interval_minutes or 0 %}
+                    {% set secs = task.interval_seconds or 0 %}
+                    {% if mins >= 60 and mins % 60 == 0 and secs == 0 %}
+                        每 {{ mins // 60 }} 小时
+                    {% elif mins > 0 and secs > 0 %}
+                        每 {{ mins }} 分 {{ secs }} 秒
+                    {% elif mins > 0 %}
+                        每 {{ mins }} 分钟
                     {% else %}
-                        每 {{ task.interval_minutes }} 分钟
+                        每 {{ secs }} 秒
                     {% endif %}
                 {% else %}
                     每天 {{ task.fixed_time }}

@@ -53,9 +53,15 @@
     </div>
 
     <div class="form-group" id="interval-group">
-        <label for="interval_minutes">间隔分钟数</label>
-        <input type="number" id="interval_minutes" name="interval_minutes"
-               value="{{ task.interval_minutes if task else 60 }}" min="1" placeholder="60">
+        <label>执行间隔</label>
+        <div style="display: flex; gap: 10px; align-items: center;">
+            <input type="number" id="interval_minutes" name="interval_minutes"
+                   value="{{ task.interval_minutes if task and task.interval_minutes else 0 }}" min="0" style="width: 80px;">
+            <span>分钟</span>
+            <input type="number" id="interval_seconds" name="interval_seconds"
+                   value="{{ task.interval_seconds if task and task.interval_seconds else 0 }}" min="0" style="width: 80px;">
+            <span>秒</span>
+        </div>
     </div>
 
     <div class="form-group hidden" id="fixed-time-group">
@@ -95,14 +101,26 @@ function toggleScheduleFields() {
     if (scheduleType === 'interval') {
         intervalGroup.classList.remove('hidden');
         fixedTimeGroup.classList.add('hidden');
-        document.getElementById('interval_minutes').required = true;
         document.getElementById('fixed_time').required = false;
     } else {
         intervalGroup.classList.add('hidden');
         fixedTimeGroup.classList.remove('hidden');
-        document.getElementById('interval_minutes').required = false;
         document.getElementById('fixed_time').required = true;
     }
+}
+
+function validateIntervalForm(event) {
+    const scheduleType = document.getElementById('schedule_type').value;
+    if (scheduleType === 'interval') {
+        const minutes = parseInt(document.getElementById('interval_minutes').value) || 0;
+        const seconds = parseInt(document.getElementById('interval_seconds').value) || 0;
+        if (minutes <= 0 && seconds <= 0) {
+            event.preventDefault();
+            alert('间隔时间必须大于 0');
+            return false;
+        }
+    }
+    return true;
 }
 
 function toggleCustomModel(isUserAction) {
@@ -126,6 +144,8 @@ function toggleCustomModel(isUserAction) {
 document.addEventListener('DOMContentLoaded', function() {
     toggleScheduleFields();
     toggleCustomModel(false);
+    // Add form submit validation
+    document.querySelector('form').addEventListener('submit', validateIntervalForm);
 });
 </script>
 {% endblock %}

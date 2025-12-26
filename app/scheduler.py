@@ -92,8 +92,16 @@ def register_task(task: Task) -> None:
 
     # Create trigger based on schedule type
     if task.schedule_type == "interval":
-        trigger = IntervalTrigger(minutes=task.interval_minutes)
-        schedule_desc = f"every {task.interval_minutes} minutes"
+        total_seconds = (task.interval_minutes or 0) * 60 + (task.interval_seconds or 0)
+        trigger = IntervalTrigger(seconds=total_seconds)
+        # Format schedule description
+        mins, secs = divmod(total_seconds, 60)
+        if mins and secs:
+            schedule_desc = f"every {mins}m {secs}s"
+        elif mins:
+            schedule_desc = f"every {mins} minutes"
+        else:
+            schedule_desc = f"every {secs} seconds"
     elif task.schedule_type == "fixed_time":
         hour, minute = map(int, task.fixed_time.split(":"))
         trigger = CronTrigger(hour=hour, minute=minute)
@@ -109,7 +117,6 @@ def register_task(task: Task) -> None:
         args=[task.id],
         replace_existing=True,
         coalesce=True,
-        max_instances=1,
     )
 
     logger.info(f"Registered task {task.id} ({task.name}): {schedule_desc}")

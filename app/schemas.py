@@ -30,6 +30,7 @@ class TaskBase(BaseModel):
     api_endpoint: str = Field(..., min_length=1, max_length=MAX_API_ENDPOINT_LENGTH)
     schedule_type: ScheduleType  # interval | fixed_time
     interval_minutes: Optional[int] = None
+    interval_seconds: Optional[int] = None
     fixed_time: Optional[str] = None  # HH:MM
     message_content: str = Field(..., min_length=1)
     model: str = Field(..., min_length=1, max_length=MAX_MODEL_LENGTH)
@@ -47,18 +48,30 @@ class TaskBase(BaseModel):
     @field_validator("interval_minutes")
     @classmethod
     def validate_interval_minutes(cls, v: Optional[int]) -> Optional[int]:
-        """Validate interval_minutes is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("interval_minutes must be a positive integer")
+        """Validate interval_minutes is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("interval_minutes must be a non-negative integer")
+        return v
+
+    @field_validator("interval_seconds")
+    @classmethod
+    def validate_interval_seconds(cls, v: Optional[int]) -> Optional[int]:
+        """Validate interval_seconds is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("interval_seconds must be a non-negative integer")
         return v
 
     @model_validator(mode="after")
     def validate_schedule_config(self) -> "TaskBase":
         """Validate schedule configuration consistency."""
         if self.schedule_type == "interval":
-            if self.interval_minutes is None:
+            # At least one of interval_minutes or interval_seconds must be > 0
+            minutes = self.interval_minutes or 0
+            seconds = self.interval_seconds or 0
+            if minutes <= 0 and seconds <= 0:
                 raise ValueError(
-                    "interval_minutes is required when schedule_type is 'interval'"
+                    "interval_minutes or interval_seconds must be greater than 0 "
+                    "when schedule_type is 'interval'"
                 )
         elif self.schedule_type == "fixed_time":
             if self.fixed_time is None:
@@ -87,6 +100,7 @@ class TaskUpdate(BaseModel):
     api_key: Optional[str] = Field(None, min_length=1, max_length=MAX_API_KEY_LENGTH)
     schedule_type: Optional[ScheduleType] = None
     interval_minutes: Optional[int] = None
+    interval_seconds: Optional[int] = None
     fixed_time: Optional[str] = None
     message_content: Optional[str] = Field(None, min_length=1)
     model: Optional[str] = Field(None, min_length=1, max_length=MAX_MODEL_LENGTH)
@@ -104,9 +118,17 @@ class TaskUpdate(BaseModel):
     @field_validator("interval_minutes")
     @classmethod
     def validate_interval_minutes(cls, v: Optional[int]) -> Optional[int]:
-        """Validate interval_minutes is positive."""
-        if v is not None and v <= 0:
-            raise ValueError("interval_minutes must be a positive integer")
+        """Validate interval_minutes is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("interval_minutes must be a non-negative integer")
+        return v
+
+    @field_validator("interval_seconds")
+    @classmethod
+    def validate_interval_seconds(cls, v: Optional[int]) -> Optional[int]:
+        """Validate interval_seconds is non-negative."""
+        if v is not None and v < 0:
+            raise ValueError("interval_seconds must be a non-negative integer")
         return v
 
 

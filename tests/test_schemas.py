@@ -225,7 +225,7 @@ def test_task_create_interval_requires_interval_minutes():
             model="gpt-4",
         )
 
-    assert "interval_minutes is required" in str(exc_info.value)
+    assert "interval_minutes or interval_seconds must be greater than 0" in str(exc_info.value)
 
 
 def test_task_create_fixed_time_requires_fixed_time():
@@ -265,7 +265,7 @@ def test_task_create_invalid_fixed_time_format():
 
 
 def test_task_create_invalid_interval_minutes():
-    """Test TaskCreate validates interval_minutes is positive."""
+    """Test TaskCreate validates interval must be greater than 0."""
     from app.schemas import TaskCreate
 
     with pytest.raises(ValidationError) as exc_info:
@@ -274,12 +274,13 @@ def test_task_create_invalid_interval_minutes():
             api_endpoint="https://api.example.com",
             api_key="key",
             schedule_type="interval",
-            interval_minutes=0,  # Invalid: must be positive
+            interval_minutes=0,  # Invalid: must be > 0
+            interval_seconds=0,  # Also 0, so total interval is 0
             message_content="Test",
             model="gpt-4",
         )
 
-    assert "positive" in str(exc_info.value)
+    assert "interval_minutes or interval_seconds must be greater than 0" in str(exc_info.value)
 
 
 def test_task_update_validates_schedule_type():
@@ -300,3 +301,104 @@ def test_task_update_validates_fixed_time_format():
         TaskUpdate(fixed_time="99:99")
 
     assert "HH:MM" in str(exc_info.value)
+
+
+def test_task_create_with_interval_seconds():
+    """Test TaskCreate accepts interval_seconds field."""
+    from app.schemas import TaskCreate
+
+    task = TaskCreate(
+        name="Test",
+        api_endpoint="https://api.example.com",
+        api_key="key",
+        schedule_type="interval",
+        interval_minutes=1,
+        interval_seconds=30,
+        message_content="Test",
+        model="gpt-4",
+    )
+
+    assert task.interval_minutes == 1
+    assert task.interval_seconds == 30
+
+
+def test_task_create_seconds_only():
+    """Test TaskCreate accepts seconds-only interval."""
+    from app.schemas import TaskCreate
+
+    task = TaskCreate(
+        name="Test",
+        api_endpoint="https://api.example.com",
+        api_key="key",
+        schedule_type="interval",
+        interval_minutes=0,
+        interval_seconds=10,
+        message_content="Test",
+        model="gpt-4",
+    )
+
+    assert task.interval_minutes == 0
+    assert task.interval_seconds == 10
+
+
+def test_task_create_negative_interval_seconds():
+    """Test TaskCreate rejects negative interval_seconds."""
+    from app.schemas import TaskCreate
+
+    with pytest.raises(ValidationError) as exc_info:
+        TaskCreate(
+            name="Test",
+            api_endpoint="https://api.example.com",
+            api_key="key",
+            schedule_type="interval",
+            interval_minutes=1,
+            interval_seconds=-5,
+            message_content="Test",
+            model="gpt-4",
+        )
+
+    assert "non-negative" in str(exc_info.value)
+
+
+def test_task_update_with_interval_seconds():
+    """Test TaskUpdate accepts interval_seconds field."""
+    from app.schemas import TaskUpdate
+
+    task_update = TaskUpdate(interval_seconds=30)
+    assert task_update.interval_seconds == 30
+
+
+def test_task_create_large_interval_seconds():
+    """Test TaskCreate accepts large interval_seconds values."""
+    from app.schemas import TaskCreate
+
+    task = TaskCreate(
+        name="Test",
+        api_endpoint="https://api.example.com",
+        api_key="key",
+        schedule_type="interval",
+        interval_minutes=0,
+        interval_seconds=120,  # 2 minutes expressed in seconds
+        message_content="Test",
+        model="gpt-4",
+    )
+
+    assert task.interval_seconds == 120
+
+
+def test_task_create_boundary_one_second():
+    """Test TaskCreate accepts minimum 1 second interval."""
+    from app.schemas import TaskCreate
+
+    task = TaskCreate(
+        name="Test",
+        api_endpoint="https://api.example.com",
+        api_key="key",
+        schedule_type="interval",
+        interval_minutes=0,
+        interval_seconds=1,
+        message_content="Test",
+        model="gpt-4",
+    )
+
+    assert task.interval_seconds == 1
