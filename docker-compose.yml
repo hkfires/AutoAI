@@ -1,7 +1,6 @@
-version: '3.8'
-
 services:
   autoai:
+    container_name: autoai
     build: .
     restart: unless-stopped
     ports:

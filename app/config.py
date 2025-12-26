@@ -96,8 +96,10 @@ def ensure_encryption_key() -> str:
     # Check if .env exists - don't create from scratch as it needs ADMIN_PASSWORD
     if not env_path.exists():
         raise FileNotFoundError(
-            ".env file not found. Please create it from .env.example first. "
-            "ENCRYPTION_KEY will be auto-generated on next startup."
+            "ENCRYPTION_KEY not set or .env file not found.\n"
+            "For local development: Create .env from .env.example first.\n"
+            "For Docker deployment: Set ENCRYPTION_KEY in .env or docker-compose.yml.\n"
+            "Generate a key with: See README.md for details."
         )
 
     # Platform-specific file locking

@@ -69,12 +69,12 @@ uvicorn app.main:app --reload
 
 3. 构建并启动容器：
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
 
 4. 等待健康检查通过（约 30 秒）：
    ```bash
-   docker-compose ps
+   docker compose ps
    # 状态应显示 (healthy)
    ```
 
@@ -94,13 +94,13 @@ uvicorn app.main:app --reload
 
 | 操作 | 命令 |
 |------|------|
-| 启动服务 | `docker-compose up -d` |
-| 停止服务 | `docker-compose down` |
-| 重启服务 | `docker-compose restart` |
-| 查看日志 | `docker-compose logs -f` |
-| 查看状态 | `docker-compose ps` |
-| 重新构建 | `docker-compose up -d --build` |
-| 进入容器 | `docker-compose exec autoai bash` |
+| 启动服务 | `docker compose up -d` |
+| 停止服务 | `docker compose down` |
+| 重启服务 | `docker compose restart` |
+| 查看日志 | `docker compose logs -f` |
+| 查看状态 | `docker compose ps` |
+| 重新构建 | `docker compose up -d --build` |
+| 进入容器 | `docker compose exec autoai bash` |
 
 #### 数据持久化
 
@@ -111,20 +111,12 @@ uvicorn app.main:app --reload
 | `./data/` | SQLite 数据库文件 (autoai.db) |
 | `./logs/` | 应用日志文件 (autoai.log) |
 
-#### 环境变量
-
-| 变量 | 说明 | 默认值 |
-|------|------|--------|
-| DATABASE_URL | 数据库连接字符串 | `sqlite+aiosqlite:///./data/autoai.db` |
-| LOG_LEVEL | 日志级别 (DEBUG/INFO/WARNING/ERROR/CRITICAL) | `INFO` |
-| ADMIN_PASSWORD | 管理密码 | **必需，无默认值** |
-
 #### 故障排查
 
 **容器无法启动：**
 ```bash
 # 查看容器日志
-docker-compose logs autoai
+docker compose logs autoai
 
 # 检查 .env 文件是否存在且 ADMIN_PASSWORD 已设置
 cat .env
@@ -133,11 +125,44 @@ cat .env
 **健康检查失败：**
 ```bash
 # 进入容器检查
-docker-compose exec autoai bash
+docker compose exec autoai bash
 
-# 容器内测试
-python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read())"
+# 或直接在容器内测试
+docker compose exec autoai python -c "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health').read())"
 ```
+
+## 环境变量
+
+| 变量 | 说明 | 默认值 |
+|------|------|--------|
+| DATABASE_URL | 数据库连接字符串 | `sqlite+aiosqlite:///./data/autoai.db` |
+| LOG_LEVEL | 日志级别 (DEBUG/INFO/WARNING/ERROR/CRITICAL) | `INFO` |
+| ADMIN_PASSWORD | 管理密码 | **必需，无默认值** |
+| ENCRYPTION_KEY | API Key 加密密钥 | 本地开发自动生成，Docker 需手动设置 |
+
+### 生成 ENCRYPTION_KEY
+
+`ENCRYPTION_KEY` 用于加密存储 API Key。本地开发时会自动生成并保存到 `.env` 文件，Docker 部署时需手动设置。
+
+生成方法：
+
+```bash
+# 方式1：使用 Docker 容器生成（需要先安装 cryptography）
+docker run --rm python:3.11-slim sh -c "pip install -q cryptography && python -c \"from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())\""
+
+# 方式2：使用 docker compose exec（容器已启动时）
+docker compose exec autoai python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+
+# 方式3：本地 Python 环境
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+```
+
+将生成的密钥添加到 `.env` 文件：
+```bash
+ENCRYPTION_KEY=your_generated_key_here
+```
+
+> ⚠️ **重要**：如果更换 `ENCRYPTION_KEY`，之前加密的 API Key 将无法解密，需要重新配置。
 
 ## 项目结构
 
