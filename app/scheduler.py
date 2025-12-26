@@ -4,6 +4,7 @@ Implements scheduled task execution using APScheduler with AsyncIOScheduler.
 Provides task registration, execution, and dynamic job management.
 """
 
+import asyncio
 from datetime import datetime, timezone
 
 from apscheduler.jobstores.base import JobLookupError
@@ -20,6 +21,9 @@ from app.utils.security import decrypt_api_key, mask_api_key
 
 # Global scheduler instance with asyncio support
 scheduler = AsyncIOScheduler()
+
+# Track pending immediate executions for cleanup
+_pending_immediate_tasks: set[asyncio.Task] = set()
 
 
 async def start_scheduler() -> None:
@@ -197,6 +201,32 @@ def add_job(task: Task) -> None:
     """
     register_task(task)
 
+    # Immediately execute interval tasks when they are created
+    if task.enabled and task.schedule_type == "interval":
+        logger.info(f"[IMMEDIATE] Executing interval task {task.id} ({task.name})")
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                f"No event loop running, cannot immediately execute task {task.id}"
+            )
+            return
+
+        # Create task with exception handling and cleanup
+        async def execute_with_cleanup():
+            try:
+                await execute_task(task.id)
+            except Exception as e:
+                logger.exception(f"Immediate execution failed for task {task.id}: {e}")
+            finally:
+                current_task = asyncio.current_task()
+                if current_task:
+                    _pending_immediate_tasks.discard(current_task)
+
+        task_ref = loop.create_task(execute_with_cleanup())
+        _pending_immediate_tasks.add(task_ref)
+
 
 def remove_job(task_id: int) -> None:
     """Dynamically remove a task from the scheduler.
@@ -223,3 +253,29 @@ def reschedule_job(task: Task) -> None:
     will be removed.
     """
     register_task(task)  # register_task handles removal and re-registration
+
+    # Immediately execute interval tasks when they are updated
+    if task.enabled and task.schedule_type == "interval":
+        logger.info(f"[IMMEDIATE] Executing interval task {task.id} ({task.name})")
+
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            logger.warning(
+                f"No event loop running, cannot immediately execute task {task.id}"
+            )
+            return
+
+        # Create task with exception handling and cleanup
+        async def execute_with_cleanup():
+            try:
+                await execute_task(task.id)
+            except Exception as e:
+                logger.exception(f"Immediate execution failed for task {task.id}: {e}")
+            finally:
+                current_task = asyncio.current_task()
+                if current_task:
+                    _pending_immediate_tasks.discard(current_task)
+
+        task_ref = loop.create_task(execute_with_cleanup())
+        _pending_immediate_tasks.add(task_ref)

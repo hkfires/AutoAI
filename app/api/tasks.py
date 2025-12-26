@@ -12,6 +12,8 @@ from app.models import Task, ExecutionLog
 from app.schemas import TaskCreate, TaskUpdate, TaskResponse, ExecutionLogResponse
 from app.services import task_service
 from app.web.auth import require_auth_api
+from app.scheduler import add_job, reschedule_job
+from loguru import logger
 
 router = APIRouter(prefix="/api/tasks", tags=["tasks"])
 
@@ -24,6 +26,14 @@ async def create_task(
 ):
     """Create a new task."""
     task = await task_service.create_task(session, task_data)
+
+    # Register with scheduler (wrapped in try-except to handle failures)
+    try:
+        add_job(task)
+    except Exception as e:
+        logger.error(f"Failed to register task {task.id} with scheduler: {e}")
+        # Task is saved, will be registered on next startup
+
     return task
 
 
@@ -91,7 +101,16 @@ async def update_task(
         # Create a new TaskUpdate with the modified data
         task_data = TaskUpdate(**update_dict)
 
-    return await task_service.update_task(session, task, task_data)
+    updated_task = await task_service.update_task(session, task, task_data)
+
+    # Re-register with scheduler
+    try:
+        reschedule_job(updated_task)
+    except Exception as e:
+        logger.error(f"Failed to reschedule task {task_id} with scheduler: {e}")
+        # Task is updated, will be re-registered on next startup
+
+    return updated_task
 
 
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT)

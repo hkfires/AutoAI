@@ -296,6 +296,7 @@ class TestTaskExecution:
                         api_endpoint=mock_task.api_endpoint,
                         api_key="plain_key",
                         message_content=mock_task.message_content,
+                        model=mock_task.model,
                     )
                     mock_session.add.assert_called_once()
                     mock_session.commit.assert_called_once()
@@ -507,3 +508,141 @@ class TestDynamicJobManagement:
         assert scheduler.get_job(f"task_{mock_task.id}") is None
 
         scheduler.shutdown(wait=False)
+
+
+# =============================================================================
+# Immediate Execution Tests (Tech-Spec: interval-task-immediate-execution)
+# =============================================================================
+
+class TestImmediateExecution:
+    """Tests for immediate execution of interval tasks."""
+
+    @pytest.mark.asyncio
+    async def test_add_job_executes_interval_task_immediately(self, mock_task):
+        """Test that add_job executes interval tasks immediately (AC #1)."""
+        from app.scheduler import add_job, scheduler
+        import asyncio
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            add_job(mock_task)
+
+            # Verify loop.create_task was called
+            mock_loop.create_task.assert_called_once()
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    @pytest.mark.asyncio
+    async def test_add_job_does_not_execute_disabled_task_immediately(self, mock_disabled_task):
+        """Test that add_job does not execute disabled tasks immediately (AC #2)."""
+        from app.scheduler import add_job, scheduler
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            add_job(mock_disabled_task)
+
+            # Verify execute_task was NOT scheduled
+            mock_loop.create_task.assert_not_called()
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    @pytest.mark.asyncio
+    async def test_add_job_does_not_execute_fixed_time_task_immediately(self, mock_fixed_time_task):
+        """Test that add_job does not execute fixed_time tasks immediately (AC #4)."""
+        from app.scheduler import add_job, scheduler
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            add_job(mock_fixed_time_task)
+
+            # Verify execute_task was NOT scheduled
+            mock_loop.create_task.assert_not_called()
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    @pytest.mark.asyncio
+    async def test_reschedule_job_executes_interval_task_immediately(self, mock_task):
+        """Test that reschedule_job executes interval tasks immediately (AC #3)."""
+        from app.scheduler import reschedule_job, scheduler
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            reschedule_job(mock_task)
+
+            # Verify execute_task was scheduled
+            mock_loop.create_task.assert_called_once()
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    @pytest.mark.asyncio
+    async def test_reschedule_job_does_not_execute_disabled_task(self, mock_disabled_task):
+        """Test that reschedule_job does not execute disabled tasks."""
+        from app.scheduler import reschedule_job, scheduler
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            reschedule_job(mock_disabled_task)
+
+            # Verify execute_task was NOT scheduled
+            mock_loop.create_task.assert_not_called()
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+
+    @pytest.mark.asyncio
+    async def test_immediate_execution_logging(self, mock_task):
+        """Test that immediate execution is logged (AC #4)."""
+        from app.scheduler import add_job, scheduler
+
+        if not scheduler.running:
+            scheduler.start()
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            with patch("app.scheduler.logger") as mock_logger:
+                add_job(mock_task)
+
+                # Verify logging call with [IMMEDIATE] prefix
+                mock_logger.info.assert_any_call(
+                    f"[IMMEDIATE] Executing interval task {mock_task.id} ({mock_task.name})"
+                )
+
+        if scheduler.running:
+            scheduler.shutdown(wait=False)
+

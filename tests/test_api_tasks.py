@@ -439,3 +439,79 @@ class TestApiKeyMasking:
             f"API key not properly masked: {data['api_key']}"
         # Plain text key should NOT appear
         assert new_key not in str(data)
+
+
+# =============================================================================
+# Immediate Execution Tests for API Endpoints
+# =============================================================================
+
+class TestAPIImmediateExecution:
+    """Tests for immediate execution via API endpoints (AC #5)."""
+
+    @pytest.mark.asyncio
+    async def test_create_interval_task_executes_immediately(self, client):
+        """Test that creating an interval task via API executes immediately."""
+        from unittest.mock import patch, MagicMock
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            response = await client.post("/api/tasks", json=VALID_TASK_DATA)
+            assert response.status_code == 201
+
+            # Verify immediate execution was triggered
+            mock_loop.create_task.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_update_interval_task_executes_immediately(self, client):
+        """Test that updating an interval task via API executes immediately."""
+        from unittest.mock import patch, MagicMock
+
+        # Create task first
+        create_response = await client.post("/api/tasks", json=VALID_TASK_DATA)
+        task_id = create_response.json()["id"]
+
+        # Update task
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            response = await client.put(
+                f"/api/tasks/{task_id}",
+                json={"interval_minutes": 45}
+            )
+            assert response.status_code == 200
+
+            # Verify immediate execution was triggered
+            mock_loop.create_task.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_create_fixed_time_task_not_executed_immediately(self, client):
+        """Test that creating a fixed_time task via API does not execute immediately."""
+        from unittest.mock import patch, MagicMock
+
+        fixed_time_data = {
+            "name": "API Fixed Time Task",
+            "api_endpoint": "https://api.openai.com/v1/chat/completions",
+            "api_key": "sk-test1234567890abcdef",
+            "schedule_type": "fixed_time",
+            "fixed_time": "09:00",
+            "message_content": "Test message",
+            "model": "gpt-4",
+            "enabled": True,
+        }
+
+        with patch("asyncio.get_running_loop") as mock_get_loop:
+            mock_loop = MagicMock()
+            mock_loop.create_task = MagicMock()
+            mock_get_loop.return_value = mock_loop
+
+            response = await client.post("/api/tasks", json=fixed_time_data)
+            assert response.status_code == 201
+
+            # Verify immediate execution was NOT triggered
+            mock_loop.create_task.assert_not_called()
+
