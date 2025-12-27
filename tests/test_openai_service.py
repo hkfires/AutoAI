@@ -350,6 +350,164 @@ class TestResponseProcessing:
         assert short_masked == "***"
 
 
+class TestImageGenerationResponse:
+    """Tests for image generation response handling."""
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_image_response_with_null_content(self):
+        """Test that image response with null content returns image count summary."""
+        from app.services.openai_service import send_message, OpenAIResponse
+
+        image_response = {
+            "id": "test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "gemini-3-pro-image",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "images": [
+                        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}, "index": 0},
+                        {"type": "image_url", "image_url": {"url": "data:image/jpeg;base64,..."}, "index": 1}
+                    ]
+                },
+                "finish_reason": "stop"
+            }]
+        }
+
+        respx.post(TEST_ENDPOINT).mock(return_value=Response(200, json=image_response))
+
+        result = await send_message(
+            api_endpoint=TEST_ENDPOINT,
+            api_key=TEST_API_KEY,
+            message_content=TEST_MESSAGE,
+        )
+
+        assert isinstance(result, OpenAIResponse)
+        assert result.response_summary == "[图像生成成功] 共 2 张图片"
+        assert result.response_time_ms >= 0
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_image_response_single_image(self):
+        """Test that single image response is handled correctly."""
+        from app.services.openai_service import send_message
+
+        image_response = {
+            "id": "test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "gemini-3-pro-image",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "images": [
+                        {"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}, "index": 0}
+                    ]
+                },
+                "finish_reason": "stop"
+            }]
+        }
+
+        respx.post(TEST_ENDPOINT).mock(return_value=Response(200, json=image_response))
+
+        result = await send_message(
+            api_endpoint=TEST_ENDPOINT,
+            api_key=TEST_API_KEY,
+            message_content=TEST_MESSAGE,
+        )
+
+        assert result.response_summary == "[图像生成成功] 共 1 张图片"
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_null_content_no_images_raises_error(self):
+        """Test that null content with no images raises OpenAIServiceError."""
+        from app.services.openai_service import send_message, OpenAIServiceError
+
+        bad_response = {
+            "id": "test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "gpt-4",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None
+                },
+                "finish_reason": "stop"
+            }]
+        }
+
+        respx.post(TEST_ENDPOINT).mock(return_value=Response(200, json=bad_response))
+
+        with pytest.raises(OpenAIServiceError) as exc_info:
+            await send_message(
+                api_endpoint=TEST_ENDPOINT,
+                api_key=TEST_API_KEY,
+                message_content=TEST_MESSAGE,
+            )
+
+        assert "null content with no images" in exc_info.value.message
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_null_content_empty_images_raises_error(self):
+        """Test that null content with empty images array raises OpenAIServiceError."""
+        from app.services.openai_service import send_message, OpenAIServiceError
+
+        bad_response = {
+            "id": "test",
+            "object": "chat.completion",
+            "created": 0,
+            "model": "gpt-4",
+            "choices": [{
+                "index": 0,
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "images": []
+                },
+                "finish_reason": "stop"
+            }]
+        }
+
+        respx.post(TEST_ENDPOINT).mock(return_value=Response(200, json=bad_response))
+
+        with pytest.raises(OpenAIServiceError) as exc_info:
+            await send_message(
+                api_endpoint=TEST_ENDPOINT,
+                api_key=TEST_API_KEY,
+                message_content=TEST_MESSAGE,
+            )
+
+        assert "null content with no images" in exc_info.value.message
+
+    @pytest.mark.asyncio
+    @respx.mock
+    async def test_text_response_still_works(self):
+        """Test that normal text responses still work (backward compatibility)."""
+        from app.services.openai_service import send_message
+
+        respx.post(TEST_ENDPOINT).mock(
+            return_value=Response(200, json=MOCK_SUCCESS_RESPONSE)
+        )
+
+        result = await send_message(
+            api_endpoint=TEST_ENDPOINT,
+            api_key=TEST_API_KEY,
+            message_content=TEST_MESSAGE,
+        )
+
+        assert result.response_summary == "Hello! How can I help you today?"
+
+
 class TestMalformedResponses:
     """Tests for handling malformed API responses."""
 
@@ -379,10 +537,10 @@ class TestMalformedResponses:
     @pytest.mark.asyncio
     @respx.mock
     async def test_missing_message_content(self):
-        """Test handling when message content is missing."""
+        """Test handling when message content is missing (treated as null)."""
         from app.services.openai_service import send_message, OpenAIServiceError
 
-        # Response with missing content field
+        # Response with missing content field (no content key at all)
         bad_response = {
             **MOCK_SUCCESS_RESPONSE,
             "choices": [{"index": 0, "message": {"role": "assistant"}}]
@@ -399,7 +557,8 @@ class TestMalformedResponses:
                 message_content=TEST_MESSAGE,
             )
 
-        assert "Unexpected response structure" in exc_info.value.message
+        # Missing content is treated as null, which requires images
+        assert "null content with no images" in exc_info.value.message
 
     @pytest.mark.asyncio
     @respx.mock

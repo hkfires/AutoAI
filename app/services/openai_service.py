@@ -114,7 +114,25 @@ async def send_message(
         # Parse successful response
         try:
             data = response.json()
-            ai_content = data["choices"][0]["message"]["content"]
+            message = data["choices"][0]["message"]
+            ai_content = message.get("content")
+
+            # Handle image generation responses (content=null with images array)
+            if ai_content is None:
+                images = message.get("images")
+                if isinstance(images, list) and images:
+                    ai_content = f"[图像生成成功] 共 {len(images)} 张图片"
+                    logger.info(
+                        f"Image generation response detected: {len(images)} images "
+                        f"(key: {masked_key})"
+                    )
+                else:
+                    raise OpenAIServiceError(
+                        message="API returned null content with no images",
+                        status_code=response.status_code,
+                    )
+        except OpenAIServiceError:
+            raise
         except (KeyError, IndexError, TypeError) as e:
             logger.error(
                 f"OpenAI API returned unexpected response structure: {e} "
